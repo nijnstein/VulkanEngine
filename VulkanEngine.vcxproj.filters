@@ -1,0 +1,400 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="VulkanEngine">
+      <UniqueIdentifier>{88a41a5b-2164-4b2f-835a-1bd6b8bce910}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VulkanEngine\Headers">
+      <UniqueIdentifier>{4b2d22a1-cf6d-44fa-b81b-67493a6c8364}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VulkanEngine\Sources">
+      <UniqueIdentifier>{117e4d3f-89bf-4139-89c6-bedc94a39dd4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{a408a3f8-37ab-4bb2-8d06-894973b0e458}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VulkanEngine\Data Structures">
+      <UniqueIdentifier>{a8a16af0-fb80-42a9-9f0f-93e0e90462cf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VulkanEngine\Data Structures\Octree">
+      <UniqueIdentifier>{2f1319ed-8be3-48c8-94cd-6bd6ef14feb2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World">
+      <UniqueIdentifier>{5c4a4f20-a84c-4733-8e84-8b93b7d0027b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VulkanEngine\Data Structures\HeightMap">
+      <UniqueIdentifier>{fa8f2c22-a610-4f56-a33a-cf9736db9b4b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VulkanEngine\Tools">
+      <UniqueIdentifier>{ced21283-9169-4f34-8685-10e3987e6c04}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VulkanEngine\Math">
+      <UniqueIdentifier>{971d267e-aec2-4194-ae48-9f33c5d8825e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VulkanEngine\Math\Primitives">
+      <UniqueIdentifier>{6bf238a8-68fe-41fe-8726-6c9bf9ce3639}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VulkanEngine\UI">
+      <UniqueIdentifier>{b095a1d7-7a64-49fe-b8a3-55b2ad79522d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Windows">
+      <UniqueIdentifier>{28618f1e-fbd5-424b-8823-af965b79b614}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VulkanEngine\Math\3rdparty">
+      <UniqueIdentifier>{4b3fa9e0-cee8-450d-8e07-52cdbe0bc857}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VulkanEngine\Overlays">
+      <UniqueIdentifier>{095a7c1e-c038-4797-b8bf-e404b2a8103c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets">
+      <UniqueIdentifier>{9d9ef11c-d5e7-40e4-8d2c-054536ecc026}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\Fonts">
+      <UniqueIdentifier>{409ef714-cceb-42ff-a2c7-4f324d142747}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\meshopt">
+      <UniqueIdentifier>{c79244d0-3509-4884-a1db-9f0e2eb8ae69}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\imgui">
+      <UniqueIdentifier>{335b8586-5de0-4d14-8937-8d62de87184f}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="debug.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="defines.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="engine.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="tools.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="image.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="buffer.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="assets.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="material.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="vertex.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="aabb.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="io.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="entity.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="scene.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="input.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="camera.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="initializers.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="device.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Libraries\imgui\imconfig.h">
+      <Filter>Assets\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Libraries\imgui\imgui.h">
+      <Filter>Assets\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Libraries\imgui\imgui_internal.h">
+      <Filter>Assets\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Libraries\imgui\imstb_rectpack.h">
+      <Filter>Assets\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Libraries\imgui\imstb_textedit.h">
+      <Filter>Assets\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Libraries\imgui\imstb_truetype.h">
+      <Filter>Assets\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Libraries\imgui\imgui_impl_glfw.h">
+      <Filter>Assets\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Libraries\imgui\imgui_impl_vulkan.h">
+      <Filter>Assets\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="render.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="frustum.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="configuration.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="mesh.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="texture.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="shader.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="model.h">
+      <Filter>VulkanEngine\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Libraries\meshopt\src\meshoptimizer.h">
+      <Filter>Assets\meshopt</Filter>
+    </ClInclude>
+    <ClInclude Include="constantIntList.h">
+      <Filter>VulkanEngine\Data Structures</Filter>
+    </ClInclude>
+    <ClInclude Include="octree-adaptor.h">
+      <Filter>VulkanEngine\Data Structures\Octree</Filter>
+    </ClInclude>
+    <ClInclude Include="worldChunk.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClInclude Include="world.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClInclude Include="block.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClInclude Include="heightmap.h">
+      <Filter>VulkanEngine\Data Structures\HeightMap</Filter>
+    </ClInclude>
+    <ClInclude Include="sphere.h">
+      <Filter>VulkanEngine\Math\Primitives</Filter>
+    </ClInclude>
+    <ClInclude Include="math.h">
+      <Filter>VulkanEngine\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="debugwindows.h">
+      <Filter>VulkanEngine\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="consolewindow.h">
+      <Filter>Source Files\Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="stringbuilder.h">
+      <Filter>VulkanEngine\Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="Assets\fastnoise\FastNoise.h">
+      <Filter>VulkanEngine\Math\3rdparty</Filter>
+    </ClInclude>
+    <ClInclude Include="textoverlay.h">
+      <Filter>VulkanEngine\Overlays</Filter>
+    </ClInclude>
+    <ClInclude Include="grid.h">
+      <Filter>VulkanEngine\Overlays</Filter>
+    </ClInclude>
+    <ClInclude Include="ui.h">
+      <Filter>VulkanEngine\Overlays</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="debug.cpp">
+      <Filter>VulkanEngine\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="engine.cpp">
+      <Filter>VulkanEngine\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="tools.cpp">
+      <Filter>VulkanEngine\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="assets.cpp">
+      <Filter>VulkanEngine\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="io.cpp">
+      <Filter>VulkanEngine\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="input.cpp">
+      <Filter>VulkanEngine\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="camera.cpp">
+      <Filter>VulkanEngine\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\imgui\imgui.cpp">
+      <Filter>Assets\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\imgui\imgui_demo.cpp">
+      <Filter>Assets\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\imgui\imgui_draw.cpp">
+      <Filter>Assets\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\imgui\imgui_tables.cpp">
+      <Filter>Assets\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\imgui\imgui_widgets.cpp">
+      <Filter>Assets\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\imgui\imgui_impl_glfw.cpp">
+      <Filter>Assets\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\imgui\imgui_impl_vulkan.cpp">
+      <Filter>Assets\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="device.cpp">
+      <Filter>VulkanEngine\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="render.cpp">
+      <Filter>VulkanEngine\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\allocator.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\clusterizer.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\indexcodec.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\indexgenerator.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\overdrawanalyzer.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\overdrawoptimizer.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\quantization.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\simplifier.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\spatialorder.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\stripifier.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\vcacheanalyzer.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\vcacheoptimizer.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\vertexcodec.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\vertexfilter.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\vfetchanalyzer.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\meshopt\src\vfetchoptimizer.cpp">
+      <Filter>Assets\meshopt</Filter>
+    </ClCompile>
+    <ClCompile Include="device.loadktx.cpp">
+      <Filter>VulkanEngine\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="rect.h">
+      <Filter>VulkanEngine\Math\Primitives</Filter>
+    </ClCompile>
+    <ClCompile Include="math.cpp">
+      <Filter>VulkanEngine\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="Assets\fastnoise\FastNoise.cpp">
+      <Filter>VulkanEngine\Math\3rdparty</Filter>
+    </ClCompile>
+    <ClCompile Include="mesh.cpp">
+      <Filter>VulkanEngine\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="grid.cpp">
+      <Filter>VulkanEngine\Overlays</Filter>
+    </ClCompile>
+    <ClCompile Include="ui.cpp">
+      <Filter>VulkanEngine\Overlays</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shaders\shader.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\shader.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\ui.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\ui.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\grid.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\grid.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\phong.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\phong.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\sun.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\sun.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\pbr.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\pbr.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\filtercube.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\irradiancecube.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\prefilterenvmap.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="stb_font_consolas_24_latin1.inl">
+      <Filter>Assets\Fonts</Filter>
+    </None>
+    <None Include="Shaders\text.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\text.vert">
+      <Filter>Shaders</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="binary_to_compressed_c.cpp">
+      <Filter>VulkanEngine\Tools</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="..\Libraries\FastNoise2\bin\FastNoise.dll">
+      <Filter>Assets</Filter>
+    </CopyFileToFolders>
+  </ItemGroup>
+</Project>
