@@ -30,3 +30,10 @@
 *.exe
 *.out
 *.app
+/.vs/VulkanEngine/FileContentIndex
+/.vs
+/VulkanEngine/x64
+/x64
+/VulkanEngine.vcxproj.user
+/pipeline_cache_data.bin
+/VulkanEngine.pdb
