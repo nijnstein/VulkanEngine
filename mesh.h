@@ -25,6 +25,7 @@ namespace vkengine
 
 		// in model space
 		AABB aabb;
+		UINT cullDistance{0}; 
 
 		std::vector<PACKED_VERTEX> vertices;
 		std::vector<QUANTIZED_VERTEX> quantized;  
@@ -52,6 +53,7 @@ namespace vkengine
 		VEC3 calculateCentroid();
 		void scaleVertices(float scale);
 		void scaleVertices(VEC3 scale);
+		void translateVertices(VEC3 translation); 
 		void removeDuplicateVertices();// only checks lod0 !!!
 		inline VEC3 computeFaceNormal(VEC3 p1, VEC3 p2, VEC3 p3);
 		void computeVertexNormals();

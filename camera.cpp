@@ -23,27 +23,26 @@ namespace vkengine
 
 	bool CameraController::updateFpsCamera(input::InputManager inputManager, float deltaTime)
 	{
-		//look
+		// look
 		if (inputManager.isMouseButtonDown(MouseButton::right))
 		{
 			const VEC2 mouseMovement = inputManager.getMouseMovement();
-			m_yaw += m_mouseSensitivity * mouseMovement.x;
-			m_pitch -= m_mouseSensitivity * mouseMovement.y;
+			m_yaw -= m_mouseSensitivity * mouseMovement.x;
+			m_pitch += m_mouseSensitivity * mouseMovement.y;
 		}
 
-		// handle keyboard 
-		velocity = VEC3(0);
-		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyW)) { velocity.z = 1; }
-		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyS)) { velocity.z = -1; }
-		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyA)) { velocity.x = -1; }
-		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyD)) { velocity.x = 1; }
-		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keySpacebar)) { velocity.y = 1; }
-		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyShiftLeft)) { velocity.y = -1; }
+		// zoom
+		FLOAT scroll = inputManager.getMouseScroll(); 
+		if (scroll != 0)
+		{
+			scroll = scroll * deltaTime * m_scrollSpeed; 
+			m_intrinsic.fov = MAX(2.0f, MIN(90.0f, m_intrinsic.fov - scroll));
+		}
 
-		m_pitch = glm::min(glm::max(m_pitch, pitchMin), pitchMax);
+		m_pitch = MIN(MAX(m_pitch, pitchMin), pitchMax);
 
-		const float yawRadian = glm::radians(m_yaw);
-		const float pitchRadian = glm::radians(m_pitch);
+		const FLOAT yawRadian = RAD(m_yaw);
+		const FLOAT pitchRadian = RAD(m_pitch);
 
 		//construct coordinate system
 		m_extrinsic.forward = VEC3(
@@ -51,40 +50,32 @@ namespace vkengine
 			-sin(pitchRadian),
 			cos(pitchRadian) * sin(yawRadian));
 
-
-
-		glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
-		glm::vec3 cameraDirection = glm::normalize(m_extrinsic.position - m_extrinsic.lookatTarget);
-
-		glm::vec3 up = glm::vec3(0.0f, -1.0f, 0.0f);
-		glm::vec3 cameraRight = glm::normalize(glm::cross(up, cameraDirection));
-		glm::vec3 cameraUp = glm::cross(cameraDirection, cameraRight);
-
-		//m_extrinsic.up = glm::vec3(0.f, -1.f, 0.f);
-		//m_extrinsic.right = glm::normalize(glm::cross(m_extrinsic.up, m_extrinsic.forward));
-		 // calculate the new Front vector
-		
 		m_extrinsic.forward.x = cos(yawRadian) * cos(pitchRadian);
 		m_extrinsic.forward.y = sin(pitchRadian);
 		m_extrinsic.forward.z = sin(yawRadian) * cos(pitchRadian);
-		m_extrinsic.forward = glm::normalize(m_extrinsic.forward);
+		m_extrinsic.forward = NORM(m_extrinsic.forward);
 
-		// also re-calculate the Right and Up vector
-		m_extrinsic.right = glm::normalize(glm::cross(m_extrinsic.forward,up));  // normalize the vectors, because their length gets closer to 0 the more you look up or down which results in slower movement.
-		up = glm::normalize(glm::cross(m_extrinsic.right, m_extrinsic.forward));
+		m_extrinsic.right = NORM(CROSS(m_extrinsic.forward, VEC3(0.0f, -1.0f, 0.0f)));  // normalize the vectors, because their length gets closer to 0 the more you look up or down which results in slower movement.
+		m_extrinsic.up = NORM(CROSS(m_extrinsic.right, m_extrinsic.forward));
 
+		// handle keyboard 
+		velocity = VEC3(0);
+		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyW)) { velocity += m_extrinsic.forward; }
+		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyS)) { velocity -= m_extrinsic.forward; }
+		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyA)) { velocity -= m_extrinsic.right; }
+		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyD)) { velocity += m_extrinsic.right; } 
+		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keySpacebar)) { /* jump */ }
+		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyShiftLeft)) { velocity *= 3.0f; }
 
-		velocity *= m_movementSpeed * deltaTime;
-		m_extrinsic.position = this->m_extrinsic.position + m_extrinsic.forward * velocity + m_extrinsic.right * velocity;
-		
-		m_extrinsic.lookatTarget = m_extrinsic.lookatTarget + m_extrinsic.forward * velocity;
+		m_extrinsic.position = this->m_extrinsic.position + velocity * m_movementSpeed * deltaTime;
+		m_extrinsic.lookatTarget = m_extrinsic.position + m_extrinsic.forward;
 
 		updateMatrices(); 
 		return true; 
 	}
 
 	bool CameraController::updateArcBallCamera(input::InputManager inputManager, float deltaTime)
-	{
+	{																   
 		// handle mouse updates 
 		glm::vec2 mousePosition = inputManager.getMousePosition();
 		if (!inputManager.isMouseButtonDown(MouseButton::left) || (m_lastMousePosition.x == 0 && m_lastMousePosition.y == 0))

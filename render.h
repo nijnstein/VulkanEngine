@@ -86,8 +86,11 @@ namespace vkengine
 
 
 	struct RenderSet
-	{
+	{				  
+		bool isInitialized{ false };
 		bool isInvalidated{ true };
+		bool isPrepared{ false };
+		bool recreatePipelines{ false };
 
 		UINT vertexCount; 
 		UINT indexCount; 
@@ -97,8 +100,6 @@ namespace vkengine
 		Buffer vertexBuffer;
 		Buffer indexBuffer;
 
-		bool invalidateVertexBuffers{ false };
-
 		std::vector<MaterialId> usedMaterialIds;
 		std::vector<MeshInfo*> meshes;
 
@@ -107,7 +108,6 @@ namespace vkengine
 
 		// offscreen pipelines for all materials 
 		std::map<MaterialId, PipelineInfo> pipelines;
-
 
 		// request/dispose requests of meshes 
 		std::vector<MeshRequest> meshRequests;

@@ -30,5 +30,8 @@ C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\irradiancecube.frag -o "compiled sh
 C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\text.vert -o "compiled shaders\text.vert.spv"
 C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\text.frag -o "compiled shaders\text.frag.spv"
 
+C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\wireframe.vert -o "compiled shaders\wireframe.vert.spv"
+C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\wireframe.frag -o "compiled shaders\wireframe.frag.spv"
+
 
 pause

@@ -25,7 +25,8 @@ namespace vkengine
 
 
  	public:
-		const ComponentTypeId renderPrototype = ct_position | ct_scale | ct_rotation | ct_mesh_id | ct_material_id;
+		const ComponentTypeId renderPrototype = ct_position | ct_scale | ct_rotation | ct_mesh_id | ct_material_id | ct_boundingBox;
+		const ComponentTypeId invisiblePrototype = ct_position | ct_scale | ct_rotation | ct_material_id | ct_boundingBox;
 
 		VulkanEngine(EngineConfiguration config = defaultEngineConfiguration)
 		{
@@ -55,7 +56,7 @@ namespace vkengine
 			
 			if (configuration.enablePBR)
 			{
-				skyboxModel = assets::loadObj("assets/skybox.obj", nullptr, 1, false, false, false, false, false, false);				 
+				skyboxModel = assets::loadObj("assets/skybox.obj", {}, 1, false, false, false, false, false, false);
 				environmentCube = initTexture("assets/textures/gcanyon_cube.ktx", VK_FORMAT_R16G16B16A16_SFLOAT, true, true, true, true);
 				initPBR(&skyboxModel, environmentCube.image); 
 			}
@@ -119,7 +120,9 @@ namespace vkengine
 		WINDOW_ID hideWindow(WINDOW_ID id);
 		WINDOW_ID showWindow(WINDOW_ID id);
 
-		void drawText(std::string text, float x, float y, TextAlign align = TextAlign::alignLeft);
+		void drawText(std::string text, float x, float y, VEC3 color = {1, 1, 1}, float scale = 1, TextAlign align = TextAlign::alignLeft);
+		void drawText(std::string text, float x, float y, float z, VEC3 color, float scale, TextAlign align = TextAlign::alignLeft); 
+
 		//void drawText(std::string text, float x, float y, float persistForSeconds, TextAlign align = TextAlign::alignLeft);
 
 	private: 
@@ -161,11 +164,12 @@ namespace vkengine
 
 		// apps may add more types
 		virtual std::vector<EntityComponentInfo> initEntityComponents();
+		virtual void onCreateEntity(EntityId entityId) override;
+		virtual void onRemoveEntity(EntityId entityId) override;
 
 	    // helpers for creating entities 
 		EntityId attachEntity(Entity entity, VEC3 pos, QUAT rot, VEC3 scale, VEC3 color);
 		EntityId attachEntity(Entity entity, VEC3 pos, VEC3 eulerRad, VEC3 scale, VEC3 color);
-
 
 		// handle resize events 
 		void updateAfterResize()
@@ -190,229 +194,15 @@ namespace vkengine
 		}
 	   		
 		// input 
-		void initInputManager()
-		{
-			inputManager.init(); 
-		}
+		void initInputManager();
 
-		// pipeline
-		VkDescriptorSetLayout initDescriptorSetLayout(Material material)
-		{
-			std::vector<VkDescriptorSetLayoutBinding> bindings;
-
-			// sceneInfo 
-			bindings.push_back(VkDescriptorSetLayoutBinding{
-				.binding = 0,
-				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				.descriptorCount = 1,
-				.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-				.pImmutableSamplers = nullptr,
-				});
-
-			// entity data 
-			for (auto& cbuffer : gpuBuffers.componentBuffers)
-			{
-				if (cbuffer.syncToGPU)
-				{
-					bindings.push_back(VkDescriptorSetLayoutBinding{
-						.binding = (uint32_t)bindings.size(),
-						.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-						.descriptorCount = 1,
-						.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-						.pImmutableSamplers = nullptr,
-						});
-				}
-			}
-
-			material.getBindings(bindings); 
-
-			VkDescriptorSetLayoutCreateInfo layoutInfo{};
-			layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-			layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-			layoutInfo.pBindings = bindings.data();
-			layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
-
-			VkDescriptorSetLayout descriptorSetLayout{};
-			VK_CHECK(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout));
-
-			return descriptorSetLayout;
-		}
-
-		PipelineInfo initGraphicsPipeline(RenderPass renderPass, Material material)
-		{
-			PipelineInfo info{}; 
-			info.materialId = material.materialId; 
-			info.descriptorSetLayout = initDescriptorSetLayout(material); 
-
-			VkShaderModule vertShaderModule = shaders[material.vertexShaderId].module;
-			VkShaderModule fragShaderModule = shaders[material.fragmentShaderId].module;
-
-			VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-			vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-			vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-			vertShaderStageInfo.module = vertShaderModule;
-			vertShaderStageInfo.pName = "main";
-
-			VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
-			fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-			fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-			fragShaderStageInfo.module = fragShaderModule;
-			fragShaderStageInfo.pName = "main";
-
-			VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
-
-			auto bindingDescription = QUANTIZED_VERTEX::getBindingDescription();
-			auto attributeDescriptions = QUANTIZED_VERTEX::getAttributeDescriptions();
-
-			VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-			vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-			vertexInputInfo.vertexBindingDescriptionCount = 1;
-			vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-			vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-			vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
-
-			VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-			inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-			inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-			inputAssembly.primitiveRestartEnable = VK_FALSE;
-
-			VkPipelineViewportStateCreateInfo viewportState{};
-			viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-			viewportState.viewportCount = 1;
-			viewportState.scissorCount = 1;
-
-			VkPipelineRasterizationStateCreateInfo rasterizer{};
-			rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-			rasterizer.depthClampEnable = VK_FALSE;
-			rasterizer.rasterizerDiscardEnable = VK_FALSE;
-			rasterizer.polygonMode = configuration.enableWireframe ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL;
-			rasterizer.lineWidth = 1.0f;
-			rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-			rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-			rasterizer.depthBiasEnable = VK_FALSE;
-
-			VkPipelineMultisampleStateCreateInfo multisampling{};
-			multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-			multisampling.sampleShadingEnable = VK_TRUE;
-			multisampling.minSampleShading = .2f;
-			multisampling.rasterizationSamples = getCurrentMSAASamples();
-
-			VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-			colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-			colorBlendAttachment.blendEnable = VK_FALSE;
-
-			VkPipelineColorBlendStateCreateInfo colorBlending{};
-			colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-			colorBlending.logicOpEnable = VK_FALSE;
-			colorBlending.logicOp = VK_LOGIC_OP_COPY;
-			colorBlending.attachmentCount = 1;
-			colorBlending.pAttachments = &colorBlendAttachment;
-			colorBlending.blendConstants[0] = 0.0f;
-			colorBlending.blendConstants[1] = 0.0f;
-			colorBlending.blendConstants[2] = 0.0f;
-			colorBlending.blendConstants[3] = 0.0f;
-
-			std::vector<VkDynamicState> dynamicStates = {
-				VK_DYNAMIC_STATE_VIEWPORT,
-				VK_DYNAMIC_STATE_SCISSOR
-			};
-			VkPipelineDynamicStateCreateInfo dynamicState{};
-			dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-			dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
-			dynamicState.pDynamicStates = dynamicStates.data();
-
-			VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-			pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-			pipelineLayoutInfo.setLayoutCount = 1;
-			pipelineLayoutInfo.pSetLayouts = &info.descriptorSetLayout;
-
-			VK_CHECK(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &info.pipelineLayout));
-
-			VkPipelineDepthStencilStateCreateInfo depthStencil{};
-			depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-			depthStencil.depthTestEnable = VK_TRUE;
-			depthStencil.depthWriteEnable = VK_TRUE;
-			depthStencil.depthCompareOp = VK_COMPARE_OP_LESS; // 
-			depthStencil.depthBoundsTestEnable = VK_FALSE;
-			depthStencil.minDepthBounds = 0.0f; // Optional
-			depthStencil.maxDepthBounds = 1.0f; // Optional
-			depthStencil.stencilTestEnable = VK_FALSE;
-			depthStencil.front = {}; // Optional
-			depthStencil.back = {}; // Optional
-
-			VkGraphicsPipelineCreateInfo pipelineInfo{};
-			pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-			pipelineInfo.stageCount = 2;
-			pipelineInfo.pStages = shaderStages;
-
-			pipelineInfo.pVertexInputState = &vertexInputInfo;
-			pipelineInfo.pInputAssemblyState = &inputAssembly;
-			pipelineInfo.pViewportState = &viewportState;
-			pipelineInfo.pRasterizationState = &rasterizer;
-			pipelineInfo.pMultisampleState = &multisampling;
-			pipelineInfo.pDepthStencilState = nullptr; // Optional
-			pipelineInfo.pColorBlendState = &colorBlending;
-			pipelineInfo.pDynamicState = &dynamicState;
-			pipelineInfo.pDepthStencilState = &depthStencil;
-
-			pipelineInfo.layout = info.pipelineLayout;
-			pipelineInfo.renderPass = renderPass.getRenderPass();
-			pipelineInfo.subpass = 0;
-
-			pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
-			pipelineInfo.basePipelineIndex = -1; // Optional
-
-			VK_CHECK(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineInfo, nullptr, &info.pipeline));
-
-			// create descriptors 
-			for (int frame = 0; frame < MAX_FRAMES_IN_FLIGHT; frame++)
-			{
-				std::vector<VkWriteDescriptorSet> descriptorSets;
-
-				// Scene matrices
-				descriptorSets.push_back({
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.dstSet = 0,
-					.dstBinding = (uint32_t)descriptorSets.size(),
-					.descriptorCount = 1,
-					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.pBufferInfo = &sceneInfoBuffers[frame].descriptor
-					});
-
-				// entity data 
-				for (auto& cbuffer : gpuBuffers.componentBuffers)
-				{
-					if (cbuffer.syncToGPU)
-					{
-						descriptorSets.push_back({
-							.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-							.dstSet = 0,
-							.dstBinding = (uint32_t)descriptorSets.size(),
-							.descriptorCount = 1,
-							.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-							.pBufferInfo = &cbuffer.buffers[frame].descriptor
-							});
-					}
-				}
-
-				// material information 
-				material.getDescriptors(this, descriptorSets);
-
-				info.descriptors.push_back(descriptorSets); 
-			}
-
-			// indirect draw buffers (if enabled) 
-			if (configuration.enableIndirect)
-			{
-				initIndirectCommandBuffers(info);
-			}
-
-			return info;
-		}
-
+		// pipelines
 		void initPipelines(RenderSet& set);
 		void recreatePipelines(RenderSet& set);
+		VkDescriptorSetLayout initDescriptorSetLayout(Material material);
+		PipelineInfo initGraphicsPipeline(RenderPass renderPass, Material material);
 
+		// renderers
 		void prepareRenderSet(RenderSet& set)
 		{
 			const FLOAT reserve = 1.5f;
@@ -439,9 +229,10 @@ namespace vkengine
 
 			for (auto& entity : entities)
 			{
-				if (entity.components & renderPrototype)
+				if (entity.index >= 0 && entity.components & renderPrototype)
 				{
 					MeshId meshId = e_mesh_ids[entity.index];
+					assert(meshId >= 0); 
 
 					// count vertices/indices 
 					if (!set.meshInstances.contains(meshId))
@@ -467,6 +258,7 @@ namespace vkengine
 						}
 
 						// only handle material on a new mesh as there is always only 1 material / mesh
+						assert(mesh->materialId >= 0);
 						bool newMaterial = true;
 						for (auto usedMaterialId : set.usedMaterialIds)
 						{
@@ -653,7 +445,9 @@ namespace vkengine
 					}
 				}
 			}
-			set.invalidateVertexBuffers = false;
+
+			set.isPrepared = true;
+			set.isInvalidated = true; 
 		}
 
 		RenderSet initRenderSet(RenderPass& renderPass)
@@ -679,6 +473,7 @@ namespace vkengine
 			}
 
 			initPipelines(set); 
+			set.isInitialized = true; 
 
 			END_TIMER("Renderset:\n- vertexCount:   %d\n- indexCount:    %d\n- instanceCount: %d\n- materialCount: %d\n- meshCount:     %d\n- time:          ", set.vertexCount, set.indexCount, set.instanceCount, set.usedMaterialIds.size(), set.meshes.size())
 			return set; 
@@ -686,8 +481,14 @@ namespace vkengine
 
 		void updateRenderSet(RenderSet& set, MAT4 view, MAT4 projection, float far)
 		{
+			if (set.recreatePipelines)
+			{
+				recreatePipelines(set); 
+				set.recreatePipelines = false; 
+			}
+
 			// if invalidated, rebuild before the cull because of changing meshoffsets 
-			if (set.invalidateVertexBuffers)
+			if (!set.isPrepared)
 			{
 				prepareRenderSet(set); 
 			}
@@ -753,14 +554,16 @@ namespace vkengine
 			VEC4* pP = (VEC4*)gpuBuffers.getBuffer(getCurrentFrame(), ct_position).mappedData;
 			QUAT* pR = (QUAT*)gpuBuffers.getBuffer(getCurrentFrame(), ct_rotation).mappedData;
 			VEC4* pS = (VEC4*)gpuBuffers.getBuffer(getCurrentFrame(), ct_scale).mappedData;
+			VEC4* pC = (VEC4*)gpuBuffers.getBuffer(getCurrentFrame(), ct_color).mappedData;
 
 			VEC4* positions = (VEC4*)getComponentData(ct_position);
 			QUAT* rotations = (QUAT*)getComponentData(ct_rotation);
 			VEC4* scales = (VEC4*)getComponentData(ct_scale);
-			BBOX* bboxs = (BBOX*)getComponentData(ct_boundingBox); 
+			VEC4* colors = (VEC4*)getComponentData(ct_color);
+			BBOX* bboxs = (BBOX*)getComponentData(ct_boundingBox);
 		
 			set.meshRequests.clear(); 
-
+			
 			if (configuration.cullingMode == CullingMode::full)
 			{ 
 				for (auto materialId : set.usedMaterialIds)
@@ -797,7 +600,7 @@ namespace vkengine
 									VEC3 pos = VEC3(center.x, eye.y, center.z);
 									float distance = ABS(DISTANCE(eye, pos));
 
-									set.meshRequests.push_back({ entityId, mesh->meshId, distance });
+									set.meshRequests.push_back({ entityId, mesh->meshId, distance });								
 								}
 								else
 								{
@@ -809,24 +612,42 @@ namespace vkengine
 										VEC3 pos = mesh->aabb.center + VEC3(positions[entityId]);
 										float distance = ABS(DISTANCE(eye, pos));
 										UINT lodLevel = lodLevels - 1;
-										for (UINT i = 0; i < lodLevels - 1; i++)
-										{
-											if (distance < mesh->lodDistances[i])
-											{
-												lodLevel = i;
-												break;
-											}
-										}
 
-										// collect data for each lod level as each lod needs a different draw call
-										lodData[lodLevel].push_back(entityId);
+										if (mesh->cullDistance == 0 || mesh->cullDistance > distance)
+										{
+											for (UINT i = 0; i < lodLevels - 1; i++)
+											{
+												if (distance < mesh->lodDistances[i])
+												{
+													lodLevel = i;
+													break;
+												}
+											}
+
+											// collect data for each lod level as each lod needs a different draw call
+											lodData[lodLevel].push_back(entityId);
+											instanceCount++;
+										}
 									}
 									else
 									{
-										// all the same lod if disabled (could write data directly)
-										lodData[0].push_back(entityId);
-									}
-									instanceCount++;
+										if (mesh->cullDistance == 0)
+										{
+											// all the same lod if disabled (could write data directly)
+											lodData[0].push_back(entityId);
+											instanceCount++;
+										}
+										else
+										{
+											VEC3 pos = mesh->aabb.center + VEC3(positions[entityId]);
+											float distance = ABS(DISTANCE(eye, pos));
+											if (distance < mesh->cullDistance)
+											{
+												lodData[0].push_back(entityId);
+												instanceCount++;
+											}
+										}
+									}									
 								}
 							}
 							else
@@ -884,6 +705,7 @@ namespace vkengine
 										for (int j = 0; j < level.size(); j++) memcpy(pP++, &positions[level[j]], sizeof(VEC4));
 										for (int j = 0; j < level.size(); j++) memcpy(pR++, &rotations[level[j]], sizeof(QUAT));
 										for (int j = 0; j < level.size(); j++) memcpy(pS++, &scales[level[j]], sizeof(VEC4));
+										for (int j = 0; j < level.size(); j++) memcpy(pC++, &colors[level[j]], sizeof(VEC4));
 									}
 								}
 							}
@@ -913,6 +735,7 @@ namespace vkengine
 								for (int j = 0; j < level.size(); j++) memcpy(pP++, &positions[level[j]], sizeof(VEC4));
 								for (int j = 0; j < level.size(); j++) memcpy(pR++, &rotations[level[j]], sizeof(QUAT));
 								for (int j = 0; j < level.size(); j++) memcpy(pS++, &scales[level[j]], sizeof(VEC4));
+								for (int j = 0; j < level.size(); j++) memcpy(pC++, &colors[level[j]], sizeof(VEC4));
 							}
 						}
 					}
@@ -1050,18 +873,18 @@ namespace vkengine
 					mesh->quantize(); 
 				}
 
-				if (!set.invalidateVertexBuffers)
+				if (set.isPrepared)
 				{
 					if (!tryAppendMeshToSetBuffers(set, mesh, req.entityId))
 					{
-						set.invalidateVertexBuffers = true;
+						set.isPrepared = false;
 					}
 				}
 				
 				requestIndex++;
 			}
 			// keep running for more meshes if we introduce a complete buffer invalidation
-			while (requestIndex < 10 && requestIndex < set.meshRequests.size() && set.invalidateVertexBuffers);
+			while (requestIndex < 10 && requestIndex < set.meshRequests.size() && !set.isPrepared);
 
 			END_TIMER("requested %d meshes in ", requestIndex)
 		
@@ -1184,7 +1007,6 @@ namespace vkengine
 				for (auto& [materialId, pipelineInfo] : renderSet.pipelines)
 				{
    				    if (pipelineInfo.culledRenderInfo.size() == 0) continue;
-
 					auto& material = materials[materialId];
 
 					vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineInfo.pipeline);

@@ -246,6 +246,8 @@
     </CopyFileToFolders>
     <None Include="Shaders\text.frag" />
     <None Include="Shaders\text.vert" />
+    <None Include="Shaders\wireframe.frag" />
+    <None Include="Shaders\wireframe.vert" />
     <None Include="stb_font_consolas_24_latin1.inl" />
     <None Include="Shaders\filtercube.vert" />
     <None Include="Shaders\grid.frag" />

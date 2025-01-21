@@ -38,6 +38,11 @@ namespace vkengine
             min = VEC4(minp, 1); 
             max = VEC4(maxp, 1); 
         }
+
+        static BBox fromMinMax(VEC4 _min, VEC4 _max)
+        {
+            return { _min, _max };
+        }
     };
 
     struct Ray2D

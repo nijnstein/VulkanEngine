@@ -24,7 +24,12 @@ private:
 
 	std::map<UINT, WorldChunk> chunks;
 
-	MaterialId materialId; 
+	MaterialId materialId{ -1 };
+	MeshId bboxMeshId{ -1 };
+	MaterialId bboxMaterialId{ -1 }; 
+
+	bool enableBorders = false; 
+
 
 public:
 	WorldChunkGenerationInfo generationInfo
@@ -130,7 +135,7 @@ public:
 	// 
 	// initialize first chunks, allocates space for blocks and sets worldsize and origin 
 	//
-	void initChunks(IVEC2 fromXZ, IVEC2 untilXZ)
+	void initChunks(VulkanEngine* engine, IVEC2 fromXZ, IVEC2 untilXZ)
 	{
 		initialWorldSize = { untilXZ[0] - fromXZ[0] + 1, untilXZ[1] - fromXZ[1] + 1 };
 		worldOffset = VEC4(-CHUNK_SIZE_X * (initialWorldSize[0] / 2), CHUNK_SIZE_Y, -CHUNK_SIZE_Z * (initialWorldSize[1] / 2), 1);
@@ -143,6 +148,16 @@ public:
 				createChunk(IVEC2(x, z));
 			}
 		}
+
+		setMaterialId(engine->initMaterial
+		(
+			"phong-material",
+			-1, -1, -1, -1,
+			engine->initVertexShader(PHONG_VERTEX_SHADER).id,
+			engine->initFragmentShader(PHONG_FRAGMENT_SHADER).id
+		).materialId);
+
+		generateEntities(engine);
 	}
  
     // generate entities for chunks that have none 
@@ -153,17 +168,114 @@ public:
 			for (int z = gridMin[1]; z <= gridMax[1]; z++)
 			{
 				auto chunk = getChunk({ x, z });
-				if (chunk->entityId == -1)
-				{
-					chunk->entityId = generateChunkEntity(engine, { x, z });
-				}
+				chunk->entityId = generateChunkEntity(engine, { x, z });
 			}
 		}
 	}
 
-	//
-	// generate entity + mesh data 
-	//
+	void enableChunkBorders(VulkanEngine* engine)
+	{
+		if (!enableBorders)
+		{
+			for (auto& [UINT, chunk] : chunks)
+			{
+				if (chunk.entityId >= 0 && chunk.borderEntityId == -1)
+				{
+					chunk.borderEntityId = generateChunkBorderEntity(engine, chunk.gridXZ);
+				}
+			}
+			enableBorders = true;
+		}
+	}
+	void disableChunkBorders(VulkanEngine* engine)
+	{
+		if (enableBorders)
+		{
+			for (auto& [UINT, chunk] : chunks)
+			{
+				if (chunk.borderEntityId >= 0)
+				{
+					engine->removeEntity(chunk.borderEntityId); 
+					chunk.borderEntityId = -1;
+				}
+			}
+
+			enableBorders = false; 
+		}
+	}
+	inline bool chunkBordersEnabled() const {
+		return enableBorders;
+	}
+  	VEC4 getChunkBorderColorFromAxis(int x, int z)
+	{
+		if (x < 0 && z < 0)	    return VEC4(1, 0, 0, 1);
+		if (x >= 0 && z >= 0)   return VEC4(0, 1, 0, 1);
+		if (x < 0 && z >= 0)	return VEC4(0, 0, 1, 1);
+		/*if (x >= 0 && z < 0)*/return VEC4(1, 0, 1, 1);
+	}
+
+	EntityId generateChunkBorderEntity(VulkanEngine* engine, IVEC2 xz) 
+	{
+		int x = xz[0];
+		int z = xz[1];
+		WorldChunk* wc = getChunk(xz);
+
+		VEC4 borderColor = getChunkBorderColorFromAxis(wc->worldOffset.x, wc->worldOffset.z); 
+
+		BBOX box = BBOX
+		{
+			VEC4(wc->worldOffset, 0) - VEC4(0, CHUNK_SIZE_Y, 0, 0),
+			VEC4(wc->worldOffset, 0) + VEC4(CHUNK_SIZE_X, 0, CHUNK_SIZE_Z, 0)
+		};
+		box.align();
+
+		if (bboxMaterialId < 0)
+		{
+			bboxMaterialId = engine->initMaterial("bbox-wireframe")
+				->setTopology(MaterialTopology::LineList)
+				->setLineWidth(2)
+				->setVertexShader(engine->initVertexShader(WIREFRAME_VERT_SHADER).id)
+				->setFragmentShader(engine->initFragmentShader(WIREFRAME_FRAG_SHADER).id)
+				->build(); 														 		
+		}
+
+		if (bboxMeshId < 0)
+		{
+			MeshInfo mesh;
+			mesh.cullDistance = 100; 
+			mesh.materialId = bboxMaterialId;
+			mesh.vertices.resize(12 * 3);
+			PACKED_VERTEX* vertices = mesh.vertices.data();
+
+			___GEN_WIREFRAME_CUBE(vertices, borderColor, VEC3(0))
+
+			mesh.indices.resize(mesh.vertices.size());
+			for (int i = 0; i < mesh.vertices.size(); i++)
+			{
+				mesh.indices[i] = i;
+			}
+
+			mesh.removeDuplicateVertices();
+			mesh.scaleVertices({ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z });
+			mesh.translateVertices({ 0, CHUNK_SIZE_Y, 0 });
+			mesh.setVertexColors(VEC4(1));
+			mesh.quantize(); 
+
+			bboxMeshId = engine->registerMesh(mesh); 
+		}
+
+		EntityId entityId = engine->createEntity(engine->renderPrototype | ct_chunk_id); 
+		engine->setComponentData(entityId, ct_boundingBox, box); 
+		engine->setComponentData(entityId, ct_position, VEC4(box.min.x, 0, box.min.z, 0));
+		engine->setComponentData(entityId, ct_scale, VEC4(1));
+		engine->setComponentData(entityId, ct_color, borderColor);
+		engine->setComponentData(entityId, ct_mesh_id, bboxMeshId); 
+		engine->setComponentData(entityId, ct_material_id, bboxMaterialId); 
+		engine->setComponentData(entityId, ct_chunk_id, wc->entityId); 
+
+		return entityId; 
+	}
+
 	EntityId generateChunkEntity(VulkanEngine* engine, IVEC2 xz)
 	{
 		int x = xz[0]; 
@@ -198,8 +310,8 @@ public:
 		mesh.materialId = getMaterialId(); 
 		mesh.userdataPtr = wc; 
 		mesh.requestMesh = requestMesh; 
-
 		mesh.aabb = AABB::fromBoxMinMax(VEC3(box.min), VEC3(box.max));
+		mesh.meshId = engine->registerMesh(mesh); 
 	
 		engine->registerMesh(mesh); 
 		engine->setComponentData(wc->entityId, ct_position,		wc->worldOffset);
@@ -210,6 +322,11 @@ public:
 		engine->setComponentData(wc->entityId, ct_mesh_id,      mesh.meshId); 
 		engine->setComponentData(wc->entityId, ct_material_id,	mesh.materialId); 
 		engine->addComponentData(ct_chunk, &chunk, 1);
+
+		if (enableBorders)
+		{
+			wc->borderEntityId = generateChunkBorderEntity(engine, { x, z });
+		}
 
 		return wc->entityId; 
 	}
@@ -232,7 +349,6 @@ public:
 		auto chunk = getChunk(xz);
 
 		MeshId meshId = *(MeshId*)engine->getComponentData(chunk->entityId, ct_mesh_id); 
-
 	
 		requestMesh(engine, &engine->meshes[meshId], chunk);
 

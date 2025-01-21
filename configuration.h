@@ -16,6 +16,7 @@ struct EngineConfiguration
 	bool enableWireframe = false; 
 	bool enableGrid = true; 
 	bool enableTextOverlay = true; 
+	//bool enableChunkBorders = true; 
 
 	CullingMode cullingMode = CullingMode::full;
 	float textScale = 2.0f;

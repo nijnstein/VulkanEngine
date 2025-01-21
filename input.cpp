@@ -4,15 +4,26 @@ namespace vkengine
 {
     namespace input
     {
-        void InputManager::init()
+        InputManager* InputManager::instance = nullptr;
+
+        void InputManager::init(GLFWwindow* window)
         {
+            instance = this; 
+
+            glfwSetScrollCallback(window, scroll_callback); 
+
             for (int i = 0; i < KEYBOARD_KEY_COUNT; i++) m_keyboardStatus[i] = KeyState::Released;
             for (int i = 0; i < MOUSE_BUTTON_COUNT; i++) m_mouseButtonStatus[i] = KeyState::Released;
         }
 
+        void InputManager::scroll_callback(GLFWwindow * window, double xoffset, double yoffset)
+        {
+            instance->m_scrollOffset = yoffset; 
+        }
+
         void InputManager::shutdown()
         {
-
+            instance = nullptr;
         }
 
         void InputManager::update(GLFWwindow* window, float deltaTime)
@@ -22,6 +33,7 @@ namespace vkengine
 
             double mousePosX;
             double mousePosY;
+
             glfwGetCursorPos(window, &mousePosX, &mousePosY);
             m_mousePosition = glm::vec2(mousePosX, mousePosY);
             m_mouseMovement = m_mousePosition - lastFrameMousePosition;
@@ -40,6 +52,10 @@ namespace vkengine
                 const bool isKeyDown = glfwGetKey(window, keyCodeToGLFW[i]) == GLFW_PRESS;
                 m_keyboardStatus[i] = keystateFromBoolAndPreviousState(isKeyDown, m_keyboardStatus[i]);
             }
+
+            //scroll 
+            m_mouseScroll = m_scrollOffset;
+            m_scrollOffset = 0; 
         }
 
         KeyState InputManager::keystateFromBoolAndPreviousState(const bool isKeyDown, const KeyState previousState)
@@ -61,14 +77,19 @@ namespace vkengine
             }
         }
 
-        glm::vec2 InputManager::getMouseMovement()
+        VEC2 InputManager::getMouseMovement()
         {
             return m_mouseMovement;
         }
 
-        glm::vec2 InputManager::getMousePosition()
+        VEC2 InputManager::getMousePosition()
         {
             return m_mousePosition;
+        }
+
+        FLOAT InputManager::getMouseScroll()
+        {
+            return m_mouseScroll; 
         }
 
         KeyState InputManager::getMouseButtonState(const MouseButton button)

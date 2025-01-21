@@ -245,6 +245,7 @@ namespace vkengine
         deviceFeatures.sampleRateShading = VK_TRUE;
         deviceFeatures.multiDrawIndirect = VK_TRUE;
         deviceFeatures.depthClamp = VK_TRUE;
+        deviceFeatures.fillModeNonSolid = VK_TRUE; 
 
         VkDeviceCreateInfo createInfo{};
 
@@ -1738,7 +1739,17 @@ namespace vkengine
                 std::runtime_error("a material with this name already exists and cannot be built");
             }
         }
-        return new MaterialBuilder(this); 
+        return (new MaterialBuilder(this))->create(name); 
+    }
+
+    Material VulkanDevice::getMaterial(MaterialId material)
+    {
+        if (materials.contains(material))
+        {
+            return materials[material]; 
+        }
+
+        std::runtime_error("a material with this id/name does not exist");        
     }
 
     ShaderInfo VulkanDevice::initShader(const char* path, VkShaderStageFlagBits stage)
@@ -1783,7 +1794,7 @@ namespace vkengine
         models[model.modelId] = model;
     }
 
-    MeshId VulkanDevice::registerMesh(MeshInfo& mesh)
+    MeshId VulkanDevice::registerMesh(MeshInfo mesh)
     {
         mesh.meshId = (MeshId)meshes.size();
 
@@ -1826,7 +1837,7 @@ namespace vkengine
         }
     }
 
-    ModelInfo VulkanDevice::loadObj(const char* path, Material* material, float scale, bool computeNormals, bool removeDuplicateVertices, bool absoluteScaling, bool computeTangents)
+    ModelInfo VulkanDevice::loadObj(const char* path, Material material, float scale, bool computeNormals, bool removeDuplicateVertices, bool absoluteScaling, bool computeTangents)
     {
         ModelData model = assets::loadObj(path, material, scale, computeNormals, removeDuplicateVertices, absoluteScaling, computeTangents);
 

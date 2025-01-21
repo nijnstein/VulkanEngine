@@ -116,7 +116,7 @@ namespace vkengine
 		void freeTexture(int32_t textureId);
 
 		void registerModel(ModelInfo& model);
-		MeshId registerMesh(MeshInfo& mesh);
+		MeshId registerMesh(MeshInfo mesh);
 		TextureInfo& registerTexture(std::string path, VkFormat format = VK_FORMAT_R8G8B8A8_SRGB, bool isColor = true, bool isCube = false);
 
 		MeshInfo& getMesh(MeshId id); 
@@ -126,6 +126,7 @@ namespace vkengine
 		Material initMaterial(std::string name, int albedoId, int normalId, int metallicId, int roughnessId, int vertexShaderId, int fragmentShaderId);
 		MaterialId registerMaterial(Material& material) override;
 		MaterialBuilder* initMaterial(std::string name) override;
+		Material getMaterial(MaterialId material);
 
 		void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels, uint32_t layerCount = 1);
 		void transitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels, uint32_t layerCount = 1);
@@ -157,7 +158,7 @@ namespace vkengine
 		Image generateIrradianceCube(ModelData* skyboxModel, Image environmentCube);
 		Image generatePrefilteredCube(ModelData* skyboxModel, Image environmentCube);
 
-		ModelInfo loadObj(const char* path, Material* material, float scale = 1.0f, bool computeNormals = true, bool removeDuplicateVertices = true, bool absoluteScaling = false, bool computeTangents = true);
+		ModelInfo loadObj(const char* path, Material material, float scale = 1.0f, bool computeNormals = true, bool removeDuplicateVertices = true, bool absoluteScaling = false, bool computeTangents = true);
 		ImageRaw loadRawImageData(const char* path);
 
 		ShaderInfo initShader(const char* path, VkShaderStageFlagBits flags);

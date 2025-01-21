@@ -28,28 +28,47 @@ class TestApp : public vkengine::VulkanEngine
 
 	void initScene()
 	{
-		reserveCpuBuffers((nx + 1) * (nz + 1));
+		reserveCpuBuffers((nx + 1) * (nz + 1) + 1);
 
- 	    auto lineMaterial = initMaterial("line-material")->setTopology(MaterialTopology::LineList)->build(); 
+ 	    auto lineMaterial = initMaterial("wireframe")
+			->setFragmentShader(initFragmentShader(WIREFRAME_FRAG_SHADER).id)
+			->setVertexShader(initVertexShader(WIREFRAME_VERT_SHADER).id)
+			->setTopology(MaterialTopology::LineList)
+			->setLineWidth(3)
+			->build();
 
+		auto cylinder = loadObj("assets/cylinder.obj", getMaterial(lineMaterial)); 
+		auto cId = fromModel(cylinder, false, renderPrototype);
+		setComponentData(cId, ct_position, VEC4( 0, 0, 0, 0 ));
+		setComponentData(cId, ct_scale, VEC4( 10 ));
 
-		world.initChunks({ 0, 0 }, { nx, nz });
-		world.setMaterialId(initMaterial
-		(
-			"phong-material",
-			-1, -1, -1, -1,
-			initVertexShader(PHONG_VERTEX_SHADER).id,
-			initFragmentShader(PHONG_FRAGMENT_SHADER).id
-		).materialId);
-		
-     	world.generateEntities(this);
+		world.initChunks(this, { 0, 0 }, { nx, nz });
 
 		statsWindow = addWindow(new FrameStatisticsWindow({ 20, 20 }, { 560, 310 }, true, true));
 		drawCommandsWindow = hideWindow(addWindow(new DrawCommandsWindow({ 20, 400 }, { 560, 280 }, true, true)));
 		entityInfoWindow = hideWindow(addWindow(new EntityInfoWindow({ 20, 20 }, { 560, 310 }, true, true)));	
 		consoleWindow = hideWindow(addWindow(new ConsoleWindow()));
 
-		playerPosition = world.getGroundLevel({ 0.0f, 0.0f }) - 4.5f;
+		playerPosition = world.getGroundLevel({ 0.0f, 0.0f }) - 1.5f;
+
+		cId = fromModel(cylinder, false, renderPrototype);
+		auto aabb = cylinder.aabb;
+		auto pos = VEC4(world.getGroundLevel({ 0.0f, 0.0f }) + VEC3(0, 0, 0), 1); 
+		auto scale = VEC4(1); 
+		
+		setComponentData(cId, ct_position, pos);
+		setComponentData(cId, ct_scale, scale);		
+	
+		//
+		// a system should do this on all non static objects in each frame and on creation 
+		//
+
+		setComponentData(cId, ct_boundingBox, BBOX
+			{
+				VEC4(aabb.min, 1) * scale + pos,
+				VEC4(aabb.max, 1) * scale + pos
+			});
+	 
 	}
 
 	void initCamera()
@@ -62,9 +81,9 @@ class TestApp : public vkengine::VulkanEngine
 		e.lookatTarget = VEC3(0, -120, 0);
 
 		vkengine::CameraIntrinsic i{};
-		i.far = 1000.0f;
+		i.far = 1500.0f;
 		i.near = 0.01f;
-		i.fov = 90;
+		i.fov = 45;
 		i.viewPortWidth = swapChainExtent.width;
 		i.viewPortHeight = swapChainExtent.height;
 		i.aspectRatio = i.viewPortWidth / i.viewPortHeight;
@@ -79,7 +98,8 @@ class TestApp : public vkengine::VulkanEngine
 		sceneInfo.lightColor = VEC3(1, 1, 1);
 		sceneInfo.lightIntensity = 1;
 
-		drawText("NijnEngine", 1000, 100); 
+		drawText("NijnEngine", 1000, 100, { 0, 1, 0 }, 1);
+		drawText("NijnEngine", 0, 0, 0, { 1, 1, 0 }, 1);
 	}
 
 	void updateUIFrame() 
@@ -98,11 +118,29 @@ class TestApp : public vkengine::VulkanEngine
 				}
 				if (ImGui::MenuItem("Draw Commands"))
 				{
-					showWindow(drawCommandsWindow); 
-				}		   				
+					showWindow(drawCommandsWindow);
+				}
 				if (ImGui::MenuItem("Console"))
 				{
 					showWindow(consoleWindow);
+				}
+				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("World"))
+			{
+				if (world.chunkBordersEnabled())
+				{
+					if (ImGui::MenuItem("Disable Chunk Borders"))
+					{
+						world.disableChunkBorders(this); 
+					}
+				}
+				else
+				{
+					if (ImGui::MenuItem("Enable Chunk Borders"))
+					{
+						world.enableChunkBorders(this);
+					}
 				}
 				ImGui::EndMenu();
 			}

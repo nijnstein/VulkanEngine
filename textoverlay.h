@@ -8,13 +8,20 @@
 namespace vkengine
 {
 	enum TextAlign { alignLeft, alignCenter, alignRight };
+	enum TextSpace { screenSpace, worldSpace };
 	
 	struct DrawTextCommand
-	{
-		std::string text;
-		float x;
-		float y;
-		TextAlign align;
+	{												   
+		std::string text{};
+		float x{ 0 };
+		float y{ 0 };
+		float z{ 0 };
+
+		TextAlign align{ TextAlign::alignLeft };
+		TextSpace space{ TextSpace::screenSpace }; 
+
+		VEC3 color{ 1, 1, 1 };
+		float scale{ 1 };
 	};
 
 	/*
@@ -119,7 +126,7 @@ namespace vkengine
 			stb_font_consolas_24_latin1(stbFontData, font24pixels, fontHeight);
 
 			// Vertex buffer
-			VkDeviceSize bufferSize = TEXTOVERLAY_MAX_CHAR_COUNT * sizeof(VEC4);
+			VkDeviceSize bufferSize = TEXTOVERLAY_MAX_CHAR_COUNT * sizeof(VEC4) * 2;
 
 			VkBufferCreateInfo bufferInfo = init::bufferCreateInfo(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, bufferSize);
 			VK_CHECK(vkCreateBuffer(vulkanDevice->device, &bufferInfo, nullptr, &buffer));
@@ -224,12 +231,13 @@ namespace vkengine
 			VkPipelineDynamicStateCreateInfo dynamicState             = init::pipelineDynamicStateCreateInfo(dynamicStateEnables);
 
 			std::array<VkVertexInputBindingDescription, 2> vertexInputBindings = {
-				init::vertexInputBindingDescription(0, sizeof(VEC4), VK_VERTEX_INPUT_RATE_VERTEX),
+				init::vertexInputBindingDescription(0, sizeof(VEC4) * 2, VK_VERTEX_INPUT_RATE_VERTEX),
 				init::vertexInputBindingDescription(1, sizeof(VEC4), VK_VERTEX_INPUT_RATE_VERTEX),
 			};
-			std::array<VkVertexInputAttributeDescription, 2> vertexInputAttributes = {
+			std::array<VkVertexInputAttributeDescription, 3> vertexInputAttributes = {
 				init::vertexInputAttributeDescription(0, 0, VK_FORMAT_R32G32_SFLOAT, 0),			// Location 0: Position
-				init::vertexInputAttributeDescription(1, 1, VK_FORMAT_R32G32_SFLOAT, sizeof(VEC2)),	// Location 1: UV
+				init::vertexInputAttributeDescription(0, 1, VK_FORMAT_R32G32_SFLOAT, sizeof(VEC2)),	// Location 1: UV
+				init::vertexInputAttributeDescription(0, 2, VK_FORMAT_R32G32_SFLOAT, sizeof(VEC4)),	// Location 2: Color + 1 value free 
 			};
 
 			VkPipelineVertexInputStateCreateInfo vertexInputState = init::pipelineVertexInputStateCreateInfo();
@@ -262,18 +270,46 @@ namespace vkengine
 
 		void addText(DrawTextCommand& cmd)
 		{
-			addText(cmd.text, cmd.x, cmd.y, cmd.align);
+			switch (cmd.space)
+			{
+			case TextSpace::screenSpace:
+				addText(cmd.text, cmd.x, cmd.y, cmd.color, cmd.scale, cmd.align);
+				break;
+			
+			case TextSpace::worldSpace:
+				// pre-transformed... 
+				addText(cmd.text, cmd.x, cmd.y, cmd.color, cmd.scale, cmd.align);
+				break;
+			}
+		}
+
+		float calculateWidth(std::string text, float textScale)
+		{
+			const uint32_t firstChar = STB_FONT_consolas_24_latin1_FIRST_CHAR;
+			assert(mapped != nullptr);
+
+			const float charW = textScale * 1.5f * scale / frameBufferWidth;
+			const float charH = textScale * 1.5f * scale / frameBufferHeight;
+							 			
+			float textWidth = 0;
+			float textHeight = 0; 
+			for (auto letter : text)
+			{
+				stb_fontchar* charData = &stbFontData[(uint32_t)letter - firstChar];
+				textWidth += charData->advance * charW;
+			}
+
+			return textWidth;
 		}
 
 		// Add text to the current buffer
-		void addText(std::string text, float x, float y, TextAlign align)
+		void addText(std::string text, float x, float y, VEC3 color, float textScale, TextAlign align)
 		{
 			const uint32_t firstChar = STB_FONT_consolas_24_latin1_FIRST_CHAR;
-
 			assert(mapped != nullptr);
 
-			const float charW = 1.5f * scale / frameBufferWidth;
-			const float charH = 1.5f * scale / frameBufferHeight;
+			const float charW = textScale * 1.5f * scale / frameBufferWidth;
+			const float charH = textScale * 1.5f * scale / frameBufferHeight;
 
 			float fbW = (float)frameBufferWidth;
 			float fbH = (float)frameBufferHeight;
@@ -310,11 +346,21 @@ namespace vkengine
 				mapped->z = charData->s0;
 				mapped->w = charData->t0;
 				mapped++;
+				mapped->x = color.r;
+				mapped->y = color.g;
+				mapped->z = color.b;
+				mapped->w = 1;
+				mapped++;
 
 				mapped->x = (x + (float)charData->x1 * charW);
 				mapped->y = (y + (float)charData->y0 * charH);
 				mapped->z = charData->s1;
 				mapped->w = charData->t0;
+				mapped++;
+				mapped->x = color.x;
+				mapped->y = color.y;
+				mapped->z = color.z;
+				mapped->w = 1;
 				mapped++;
 
 				mapped->x = (x + (float)charData->x0 * charW);
@@ -322,11 +368,21 @@ namespace vkengine
 				mapped->z = charData->s0;
 				mapped->w = charData->t1;
 				mapped++;
+				mapped->x = color.r;
+				mapped->y = color.g;
+				mapped->z = color.b;
+				mapped->w = 1;
+				mapped++;
 
 				mapped->x = (x + (float)charData->x1 * charW);
 				mapped->y = (y + (float)charData->y1 * charH);
 				mapped->z = charData->s1;
 				mapped->w = charData->t1;
+				mapped++;
+				mapped->x = color.r;
+				mapped->y = color.g;
+				mapped->z = color.b;
+				mapped->w = 1;
 				mapped++;
 
 				x += charData->advance * charW;

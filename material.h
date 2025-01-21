@@ -14,7 +14,7 @@ namespace vkengine
 	struct Material
 	{
 		std::string name; 
-		MaterialId materialId;
+		MaterialId materialId{ -1 };
 	
 		int32_t albedoTextureId = -1;
 		int32_t normalTextureId = -1;
@@ -25,6 +25,7 @@ namespace vkengine
 		int32_t fragmentShaderId = -1; 
 
 		MaterialTopology topology{ MaterialTopology::TriangleList };
+		float lineWidth = 1; 
 
 		bool hasAlbedoTexture() 
 		{
@@ -132,6 +133,7 @@ namespace vkengine
 	public:
 		virtual MaterialId registerMaterial(Material& material) = 0;
 		virtual MaterialBuilder* initMaterial(std::string name) = 0;
+		virtual Material getMaterial(MaterialId material) = 0;
 	};
 
 	class MaterialBuilder
@@ -146,7 +148,7 @@ namespace vkengine
 			manager = materialManager;
 		}
 
-		MaterialBuilder* create(char* name)
+		MaterialBuilder* create(std::string name)
 		{
 			current = {};
 			current.name = name;
@@ -187,6 +189,11 @@ namespace vkengine
 			current.topology = topology;
 			return this;
 		}
+		MaterialBuilder* setLineWidth(float width)
+		{
+			current.lineWidth = width; 
+			return this; 
+		}
 		MaterialBuilder* setId(MaterialId id)
 		{
 			current.materialId = id;
@@ -197,7 +204,7 @@ namespace vkengine
 			MaterialId id{ -1 };
 			if (manager)
 			{
-				id = manager->registerMaterial(current);
+				id = current.materialId = manager->registerMaterial(current);
 			}
 			if (dispose)
 			{

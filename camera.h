@@ -40,6 +40,7 @@ namespace vkengine
         float m_mouseSensitivity = 1.0f;
         float m_controllerSensitivity = 1.f;
         float m_sprintSpeedFactor = 1.5f;
+        float m_scrollSpeed = 10000.0f; 
 
         CameraType getCameraType() const { return m_cameraType; }
         MAT4 getViewMatrix() const { return view; }

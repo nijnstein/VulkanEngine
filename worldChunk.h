@@ -35,6 +35,8 @@ public:
 	}
 
 	EntityId entityId{ -1 };
+	EntityId borderEntityId{ -1 };
+
 	BYTE* blocks;
 
 	IVEC2 gridXZ; 
@@ -260,10 +262,10 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 	{
 		if (frontChunk)
 		{
-			if (z <= (1 + step)) return get(frontChunk->blocks, x, y, z + CHUNK_SIZE_X - step, step);
+			if (z <= (-1 + step)) return get(frontChunk->blocks, x, y, z + CHUNK_SIZE_X - step, step);
 		}
 		else
-			if (z <= (1 + step)) return BT_STONE;
+			if (z <= (-1 + step)) return BT_STONE;
 
 		return get(x, y, z - step, step);
 	}
@@ -271,7 +273,7 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 	{
 		if (backChunk)
 		{
-			if (z >= CHUNK_SIZE_Z - step) return get(backChunk->blocks, x, y, z - CHUNK_SIZE_X + step, step);
+			if (z >= CHUNK_SIZE_Z - step) return get(backChunk->blocks, x, y, z - CHUNK_SIZE_Z + step, step);
 		}
 		else 
 			if (z >= CHUNK_SIZE_Z - step) return BT_STONE; 
@@ -318,7 +320,7 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 		{
 			if (faces[i + j] & face)
 			{
-				faces[i + j] -= face;
+				faces[i + j] &= ~face;
 				joinx = x + j;
 				
 				j += step;
@@ -352,14 +354,14 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 		}
 
 		// draw 1 face over xz
-		if (joinx > x && joinz > z)
+		if (joinx > x || joinz > z)
 		{
 			// join a square over xz / joinxz, remove the face from the faces array so it wont be redrawn on next z pass
-			for (int jj = step; jj < (joinz - z); jj += step)
+			for (int jj = step; jj <= (joinz - z); jj += step) 
 			{
 				for (int xi = 0; xi <= joinx - x; xi += step)
 				{
-					faces[i + CHUNK_SIZE_X * jj + xi] -= face;
+					faces[i + CHUNK_SIZE_X * jj + xi] &= ~face;
 				}
 			}
 		}
@@ -367,7 +369,7 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 		___GEN_FACE_JOIN(f, vertices, bt, VEC3(x, -y, z), VEC3(joinx + (step - 1), 0, joinz + (step - 1)))
 
 		c += 6;
-		faces[i] -= face;
+		faces[i] &= ~face;
 		*_vertices = vertices; 
 	}
 	void generateMeshSegmentZY(PACKED_VERTEX** _vertices, BYTE* faces, BLOCKTYPE* BLOCKS, int x, int y, int z, BYTE face, int i, UINT& c, UINT step)
@@ -378,6 +380,7 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 		// reduce triangle count by merging equal blocks along the axis
 		int j = 1;
 		int joinz = z;
+		int joiny = y;
 		BLOCKTYPE bt = blocks[i];
 
 		// check to join along the z-axis 
@@ -388,17 +391,16 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 			&&
 			faces[i + j * CHUNK_SIZE_X] & face)
 		{
-			faces[i + j * CHUNK_SIZE_X] -= face;
+			faces[i + j * CHUNK_SIZE_X] &= ~face;
 			joinz = z + j;
-			j++;
+			j += 1;
 		}
 
 		int k = 1;
-		int joiny = y;
 		while (k + y < CHUNK_SIZE_Y && bt == blocks[i + k * CHUNK_SIZE_XZ])
 		{
 			bool ok = true;
-			for (int jj = 1; jj <= joinz - z && ok; jj++) // scan z axis at y 
+			for (int jj = 1; jj <= joinz - z && ok; jj += 1) // scan z axis at y 
 			{
 				if (bt != blocks[i + jj * CHUNK_SIZE_X + k * CHUNK_SIZE_XZ] || !(faces[i + jj * CHUNK_SIZE_X + k * CHUNK_SIZE_XZ] & face))
 				{
@@ -408,7 +410,7 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 			if (ok)
 			{
 				joiny = y + k;
-				k++;
+				k += 1;
 			}
 			else
 			{
@@ -417,20 +419,20 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 		}
 		
 		// draw 1 face over zy
-		if (joinz > z && joiny > y)
+		if (joinz > z || joiny > y)
 		{
 			// clearout faces avoiding redraw on next y 
-			for (int yy = 1; y <= joiny - y; yy++)
+			for (int yy = 1; yy <= joiny - y; yy += 1)
 			{
-				for (int zz = 0; zz <= joinz - z; zz++)
+				for (int zz = 0; zz <= joinz - z; zz += 1)
 				{
-					faces[i + zz * CHUNK_SIZE_X + yy * CHUNK_SIZE_XZ] -= face;
+					faces[i + zz * CHUNK_SIZE_X + yy * CHUNK_SIZE_XZ] &= ~face;
 				}
 			}
 			___GEN_FACE_JOIN(f, vertices, bt, VEC3(x, -y, z), VEC3(0, joiny, joinz))
 		}
 		else
-		// draw 1 face over z
+		// draw 1 face over x
 		if (joinz > z)
 		{
 			___GEN_FACE_JOIN(f, vertices, bt, VEC3(x, -y, z), VEC3(0, 0, joinz))
@@ -440,10 +442,11 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 		{
 			// 1 block, 1 face, 2 triangles
 			___GEN_FACE(f, vertices, bt, VEC3(x, -y, z))
-		}
+		} 
 
+		
 		c += 6;
-		faces[i] &= !face;
+		faces[i] &= ~face;
 		*_vertices = vertices;
 	}
 	void generateMeshSegmentXY(PACKED_VERTEX** _vertices, BYTE* faces, BLOCKTYPE* BLOCKS, int x, int y, int z, BYTE face, int i, UINT& c, UINT step)
@@ -459,7 +462,7 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 		// check to join along the x-axis 
 		while (j + x < CHUNK_SIZE_X && bt == blocks[i + j] && (faces[i + j] & face))
 		{
-			faces[i + j] -= face;
+			faces[i + j] &= ~face;
 			joinx = x + j;
 			j++;
 		}
@@ -488,14 +491,14 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 		}
 
 		// draw 1 face over xy
-		if (joinx > x && joiny > y)
+		if (joinx > x || joiny > y)
 		{
 			// clearout faces avoiding redraw on next y 
-			for (int yy = 1; y <= joiny - y; yy++)
+			for (int yy = 1; yy <= joiny - y; yy++)
 			{
 				for (int xx = 0; xx <= joinx - x; xx++)
 				{
-					faces[i + xx + yy * CHUNK_SIZE_XZ] -= face; 
+					faces[i + xx + yy * CHUNK_SIZE_XZ] &= ~face; 
 				}
 			}
 			___GEN_FACE_JOIN(f, vertices, bt, VEC3(x, -y, z), VEC3(joinx, joiny, 0))
@@ -514,7 +517,7 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 		}
 
 		c += 6;
-		faces[i] &= !face;
+		faces[i] &= ~face;
 		*_vertices = vertices;
 	}
 	void generateMesh(MeshInfo* mesh, UINT lods = 1)
@@ -570,7 +573,8 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 			{
 				for (int z = 0; z < CHUNK_SIZE_Z; z += currentStep)
 				{
-					for (int x = 0; x < CHUNK_SIZE_X; x += currentStep)
+					int x; 
+					for (x = 0; x < CHUNK_SIZE_X; x += currentStep)
 					{
 						UINT i = y * CHUNK_SIZE_XZ + z * CHUNK_SIZE_X + x;
 						BYTE face = faces[i];
@@ -590,9 +594,9 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 						}
 						if (face & b_top)
 						{
-							generateMeshSegmentXZ(&vertices, faces, blocks, x, y, z, b_top, i, vertexCount, currentStep);
+						    generateMeshSegmentXZ(&vertices, faces, blocks, x, y, z, b_top, i, vertexCount, currentStep);
 						}
-						if (face & b_bottom)  // actually this is up..
+						if (face & b_bottom)    
 						{
 							generateMeshSegmentXZ(&vertices, faces, blocks, x, y, z, b_bottom, i, vertexCount, currentStep);
 						}
@@ -602,7 +606,7 @@ groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel +
 						}
 						if (face & b_back)
 						{
-							generateMeshSegmentXY(&vertices, faces, blocks, x, y, z, b_back, i, vertexCount, currentStep);
+						    generateMeshSegmentXY(&vertices, faces, blocks, x, y, z, b_back, i, vertexCount, currentStep);
 						}
 					}
 				}

@@ -90,6 +90,9 @@ const char* const FRAGMENT_SHADER = "compiled shaders/frag.spv";
 const char* const PHONG_VERTEX_SHADER = "compiled shaders/phong.vert.spv";
 const char* const PHONG_FRAGMENT_SHADER = "compiled shaders/phong.frag.spv";
 
+const char* const WIREFRAME_VERT_SHADER = "compiled shaders/wireframe.vert.spv";
+const char* const WIREFRAME_FRAG_SHADER = "compiled shaders/wireframe.frag.spv";
+
 const char* const SUN_VERTEX_SHADER = "compiled shaders/sun.vert.spv";
 const char* const SUN_FRAGMENT_SHADER = "compiled shaders/sun.frag.spv";
 
@@ -140,6 +143,8 @@ const char* const NORMAL_TEXTURE = "textures/Paving_Stone_1_Normal.jpg";
 #define CROSS glm::cross
 #define INF std::numeric_limits<FLOAT>::infinity()
 #define PI glm::pi<float>()
+#define RAD glm::radians
+#define NORM glm::normalize
 
 #define MAP std::map
 #define VECTOR std::vector

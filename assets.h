@@ -18,7 +18,7 @@ namespace vkengine
 		}
 
 		VkShaderModule createShaderModule(VkDevice device, const std::vector<uint8_t>& code);
-		ModelData loadObj(const char* path, Material* material, float scale = 1.0f, bool computeNormals = true, bool removeDuplicateVertices = true, bool absoluteScaling = false, bool computeTangents = true, bool calcLods = true, bool optimize = true);
+		ModelData loadObj(const char* path, Material material, float scale = 1.0f, bool computeNormals = true, bool removeDuplicateVertices = true, bool absoluteScaling = false, bool computeTangents = true, bool calcLods = true, bool optimize = true);
 		
 
 		glm::vec3 computeFaceNormal(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3);

@@ -125,7 +125,7 @@ namespace vkengine
 			return output;
 		}
 
-		ModelData loadObj(const char* path, Material* material, float scale, bool computeNormals, bool removeDuplicateVertices, bool absoluteScaling, bool computeTangents, bool calcLods, bool optimize)
+		ModelData loadObj(const char* path, Material material, float scale, bool computeNormals, bool removeDuplicateVertices, bool absoluteScaling, bool computeTangents, bool calcLods, bool optimize)
 		{
 			DEBUG("LOADING OBJECT: %s\n", path);
 			START_TIMER
@@ -152,7 +152,7 @@ namespace vkengine
 			{
 				MeshInfo mesh{};
 				mesh.meshId = nextMeshId();
-				mesh.materialId = material == nullptr ? -1 : material->materialId;
+				mesh.materialId = material.materialId;
 				mesh.name = shape.name;
 
 				int i = 0;

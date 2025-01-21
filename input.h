@@ -128,23 +128,31 @@ namespace vkengine
         class InputManager
         {
         public:
-            void init();
+            void init(GLFWwindow * window);
             void shutdown();
             void update(GLFWwindow* window, float deltaTime);
 
-            glm::vec2 getMouseMovement();
-            glm::vec2 getMousePosition();
+            VEC2 getMouseMovement();
+            VEC2 getMousePosition();
+            FLOAT getMouseScroll(); 
+
             KeyState getMouseButtonState(const MouseButton button);
             KeyState getKeyboardKeyState(const KeyboardKey key);
             bool isMouseButtonDown(const MouseButton button);
             bool isKeyboardKeyDown(const KeyboardKey key);
 
         private:
+            static InputManager* instance; 
+
+            float m_scrollOffset = 0; 
+            static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+
             KeyState m_keyboardStatus[KEYBOARD_KEY_COUNT];
             KeyState m_mouseButtonStatus[MOUSE_BUTTON_COUNT];
 
-            glm::vec2 m_mousePosition;
-            glm::vec2 m_mouseMovement;
+            VEC2 m_mousePosition;
+            VEC2 m_mouseMovement;
+            float m_mouseScroll;
 
             KeyState keystateFromBoolAndPreviousState(const bool isKeyDown, const KeyState previousState);
         };

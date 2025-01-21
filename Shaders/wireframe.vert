@@ -33,16 +33,7 @@ layout(binding = 4) readonly buffer EntityColorArray {
 
 layout(location = 0) in uvec4 Q;
 
-
-
 layout(location = 0) out vec3 fragColor;
-layout(location = 1) out vec2 fragTexCoord;
-layout(location = 2) out vec3 fragNormal;
-layout(location = 3) out vec3 lightPosition; 
-layout(location = 4) out vec3 fragPosition; 
-layout(location = 5) out vec3 viewPosition; 
-layout(location = 6) out vec3 tangent;
-layout(location = 7) out vec3 lightDirection;
 
 vec3 getPosition()
 {
@@ -60,35 +51,14 @@ vec3 getColor()
     return vec3(x / 255.0f, y / 255.0f, z / 255.0f);
 }
 
-vec3 getNormal()
-{
-    float x = (Q.z & 0x0000FF00) >> 8;
-    float y = (Q.z & 0x00FF0000) >> 16;
-    float z = (Q.z & 0xFF000000) >> 24;
-    return vec3((x / 127.0f) - 1.0f, (y / 127.0f) - 1.0f, (z / 127.0f) - 1.0f);
-}
-
-vec2 getUV()
-{
-    float u = (Q.w & 0x0000FFFF) / 255.0f;
-    float v = ((Q.w & 0xFFFF0000) >> 16) / 255.0f;
-    return vec2(u, v); 
-}
 
 void main()
 {
     vec3 pos = positions.data[gl_InstanceIndex].xyz; 
     vec3 scale = scales.data[gl_InstanceIndex].xyz; 
 
-    fragColor = getColor();
-    fragTexCoord = getUV();
-    fragPosition = getPosition() * scale + pos;
-
-    fragNormal = normalize(mat3(ubo.normal) * getNormal());  
-    lightDirection = ubo.lightDirection;  
+    fragColor = getColor() * colors.data[gl_InstanceIndex].xyz;
+    vec3 fragPosition = getPosition() * scale + pos;
     
     gl_Position = ubo.vp * vec4(fragPosition, 1.0);
-
-    lightPosition = ubo.lightPosition;
-    viewPosition = ubo.viewPosition; 
 }

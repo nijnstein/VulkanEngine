@@ -58,6 +58,17 @@ namespace vkengine
 		aabb = calculateAABB();
 	}
 
+	void MeshInfo::translateVertices(VEC3 translation)
+	{
+		for (int i = 0; i < vertices.size(); i++)
+		{
+			vertices[i].posAndValue.x = vertices[i].posAndValue.x + translation.x;
+			vertices[i].posAndValue.y = vertices[i].posAndValue.y + translation.y;
+			vertices[i].posAndValue.z = vertices[i].posAndValue.z + translation.z;
+		}
+		aabb = calculateAABB();
+	}
+
 	VEC3 MeshInfo::computeFaceNormal(VEC3 p1, VEC3 p2, VEC3 p3)
 	{
 		// Uses p2 as a new origin for p1,p3

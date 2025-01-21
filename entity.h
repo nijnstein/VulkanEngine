@@ -21,6 +21,22 @@ namespace vkengine
 		bool sparse; 
 	};
 
+	struct ComponentSystem
+	{
+		enum Stage {
+			DontCare,
+			BeforeFrameUpdate,
+			BeforeFrameDraw,
+			AfterFrameUpdate,
+			AfterFrameDraw,
+		};
+
+		ComponentTypeId componentMask;
+		Stage stage{DontCare};
+
+		void (*run) (EntityId id) = nullptr;
+	};
+
 	class EntityManager
 	{
 		VulkanDevice* vulkanDevice; 
@@ -148,17 +164,21 @@ namespace vkengine
 			std::map<ComponentTypeId, void*> map;
 		} cpuBufferPointers;
 
-		struct System
+		struct ComponentSystem
 		{
+			enum Stage {
+				DontCare = 1,
+				BeforeFrameUpdate = 2,
+				BeforeFrameDraw = 4,
+				OnCreate = 8
+			};
+
 			std::string name; 
 			ComponentTypeId componentMask;
+			Stage stage{ DontCare };
 
-			//
-			//  add velocity and radial speed and a system to handle entities with those components
-			//
-
-			// funcptr to execute on entity data;  from, to, pointers, timedelta
-			void (*execute) (int, int, EntityBufferPtrs, float);
+			// funcptr to execute on entity data;  entity, component pointers, userdata
+			void (*execute) (int, EntityBufferPtrs, void* userDataPtr);
 		};
 
 		struct GPUBuffers
@@ -207,7 +227,7 @@ namespace vkengine
 		} gpuBuffers;
 
 		std::vector<Entity> entities;
-		std::vector<System> systems; 
+		std::vector<ComponentSystem> systems; 
 		
 		void initComponent(ComponentTypeId componentId, bool syncToGPU, bool sparse, uint32_t elementSize)
 		{
@@ -229,6 +249,17 @@ namespace vkengine
 			for (auto& c : gpuBuffers.componentBuffers)
 			{
 				for (int i = 0; i < c.dirty.size(); i++) c.dirty[i] = false;
+			}
+		}
+
+		void runSystemStage(ComponentSystem::Stage stage, ComponentTypeId mask, EntityId entity, void* userdata)
+		{
+			for (auto& system : systems)
+			{
+				if (system.componentMask & mask == mask)
+				{
+					system.execute(entity, cpuBufferPointers, userdata); 
+				}
 			}
 		}
 
@@ -302,11 +333,27 @@ namespace vkengine
 			}
 			
 			invalidateComponents(ALL_COMPONENTS);
+			runSystemStage(ComponentSystem::Stage::OnCreate, entity.components, entity.index, nullptr); 
+			onCreateEntity(entity.index);
 			return entity.index;
 		}
-		EntityId fromModel(ModelInfo& model, bool isStatic)
+		EntityId fromModel(ModelInfo model, bool isStatic, ComponentTypeId prototype)
 		{
-			std::runtime_error("from model not supported atm, needs multiple meshes / entity");
+			if(model.meshes.size() > 1)
+				std::runtime_error("from model not supported for multi mesh models");
+
+			Entity e;
+			e.components = prototype | ct_mesh_id | ct_material_id;
+			e.isStatic = isStatic;
+
+			EntityId id = createEntity(e);
+			setComponentData(id, ct_mesh_id, model.meshes[0]);
+			setComponentData(id, ct_material_id, model.materialIds[0]);
+
+			auto aabb = model.aabb; 
+			setComponentData(id, ct_boundingBox, BBOX{ VEC4(aabb.min, 1), VEC4(aabb.max, 1) });
+
+			return id; 
 		}
 		EntityId fromMesh(MeshInfo mesh, bool isStatic, ComponentTypeId prototype)
 		{
@@ -334,8 +381,12 @@ namespace vkengine
 				}
 				entities[id].index = -1;
 				freeEntityIds.push_back(id); 
+				onRemoveEntity(id); 
 			}
 		}
+
+		virtual void onCreateEntity(EntityId id) {}
+		virtual void onRemoveEntity(EntityId id) {}
 
 		void* getComponentData(ComponentTypeId id)
 		{

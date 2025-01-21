@@ -64,6 +64,24 @@ static const BLOCKINFO BlockTypes[] =
 #define ___f  0.0f, -1.0f, 1.0f 
 #define ___g  1.0f, -1.0f, 1.0f
 #define ___h  1.0f, -1.0f, 0.0f
+                                          
+static VEC3 unitCubeLines[12 * 2] 
+{
+    {___a}, {___d}, 
+    {___d}, {___h}, 
+    {___h}, {___e}, 
+    {___e}, {___a}, 
+
+    {___b}, {___a}, 
+    {___d}, {___c}, 
+    {___g}, {___h}, 
+    {___e}, {___f}, 
+
+    {___f}, {___g}, 
+    {___g}, {___c}, 
+    {___c}, {___b}, 
+    {___b}, {___f}, 
+};
 
 static PACKED_VERTEX unitcube[6 * 6] =
 {
@@ -137,7 +155,8 @@ static PACKED_VERTEX unitcube[6 * 6] =
     ___v.colorAndNormal.z = ___color.z;                                \
     ___vertices[0] = ___v;                                             \
     ___vertices++;                                                 
-                                                                   
+                     
+
 #define ___GEN_FACE(___face, ___vertices, ___blocktype, ___offset_v3)  \
     {                                                                  \
         ___SET_FACE(___face, ___blocktype, ___offset_v3)               \
@@ -188,14 +207,52 @@ static PACKED_VERTEX unitcube[6 * 6] =
 #define TOP_FACE    4
 #define BOTTOM_FACE 5
 
-#define ___GEN_CUBE(___vertices, ___blocktype, ___offset_v3)                \
-        ___GEN_FACE(BACK_FACE,   ___vertices, ___blocktype, ___offset_v3)   \
-        ___GEN_FACE(FRONT_FACE,  ___vertices, ___blocktype, ___offset_v3)   \
-        ___GEN_FACE(LEFT_FACE,   ___vertices, ___blocktype, ___offset_v3)   \
-        ___GEN_FACE(RIGHT_FACE,  ___vertices, ___blocktype, ___offset_v3)   \
-        ___GEN_FACE(TOP_FACE,    ___vertices, ___blocktype, ___offset_v3)   \
+#define ___GEN_CUBE(___vertices, ___blocktype, ___offset_v3)                                      \
+        ___GEN_FACE(BACK_FACE,   ___vertices, ___blocktype, ___offset_v3)                         \
+        ___GEN_FACE(FRONT_FACE,  ___vertices, ___blocktype, ___offset_v3)                         \
+        ___GEN_FACE(LEFT_FACE,   ___vertices, ___blocktype, ___offset_v3)                         \
+        ___GEN_FACE(RIGHT_FACE,  ___vertices, ___blocktype, ___offset_v3)                         \
+        ___GEN_FACE(TOP_FACE,    ___vertices, ___blocktype, ___offset_v3)                         \
         ___GEN_FACE(BOTTOM_FACE, ___vertices, ___blocktype, ___offset_v3)
         
 
- 
- 
+#define ___GEN_WIREFRAME_LINE(___vertices, ___color, ___offset_v3)            \
+           ___p1 = *(___u++);                                                 \
+           ___p2 = *(___u++);                                                 \
+           ___v.posAndValue = VEC4(___p1, 0) + ___pos_offset;                 \
+           ___v.colorAndNormal.x = ___color.x;                                \
+           ___v.colorAndNormal.y = ___color.y;                                \
+           ___v.colorAndNormal.z = ___color.z;                                \
+           ___vertices[0] = ___v;                                             \
+           ___vertices++;                                                     \
+           ___v.posAndValue = VEC4(___p2, 0) + ___pos_offset;                 \
+           ___v.colorAndNormal.x = ___color.x;                                \
+           ___v.colorAndNormal.y = ___color.y;                                \
+           ___v.colorAndNormal.z = ___color.z;                                \
+           ___vertices[0] = ___v;                                             \
+           ___vertices++;                                                     \
+           ___v.posAndValue = VEC4(___p2, 0) + ___pos_offset;                 \
+           ___v.colorAndNormal.x = ___color.x;                                \
+           ___v.colorAndNormal.y = ___color.y;                                \
+           ___v.colorAndNormal.z = ___color.z;                                \
+           ___vertices[0] = ___v;                                             \
+           ___vertices++;
+
+#define ___GEN_WIREFRAME_CUBE(___vertices, ___color, ___offset_v3)            \
+        PACKED_VERTEX ___v;                                                   \
+        VEC4 ___pos_offset = VEC4(___offset_v3, 0);                           \
+        VEC3* ___u = &unitCubeLines[0];                                       \
+        VEC3 ___p1;                                                           \
+        VEC3 ___p2;                                                           \
+        ___GEN_WIREFRAME_LINE(___vertices, ___color, ___offset_v3) \
+        ___GEN_WIREFRAME_LINE(___vertices, ___color, ___offset_v3) \
+        ___GEN_WIREFRAME_LINE(___vertices, ___color, ___offset_v3) \
+        ___GEN_WIREFRAME_LINE(___vertices, ___color, ___offset_v3) \
+        ___GEN_WIREFRAME_LINE(___vertices, ___color, ___offset_v3) \
+        ___GEN_WIREFRAME_LINE(___vertices, ___color, ___offset_v3) \
+        ___GEN_WIREFRAME_LINE(___vertices, ___color, ___offset_v3) \
+        ___GEN_WIREFRAME_LINE(___vertices, ___color, ___offset_v3) \
+        ___GEN_WIREFRAME_LINE(___vertices, ___color, ___offset_v3) \
+        ___GEN_WIREFRAME_LINE(___vertices, ___color, ___offset_v3) \
+        ___GEN_WIREFRAME_LINE(___vertices, ___color, ___offset_v3) \
+        ___GEN_WIREFRAME_LINE(___vertices, ___color, ___offset_v3) 
