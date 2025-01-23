@@ -25,7 +25,7 @@ namespace vkengine
 
 
  	public:
-		const ComponentTypeId renderPrototype = ct_position | ct_scale | ct_rotation | ct_mesh_id | ct_material_id | ct_boundingBox;
+		const ComponentTypeId renderPrototype = ct_position | ct_scale | ct_rotation | ct_mesh_id | ct_material_id | ct_boundingBox | ct_render_index;
 		const ComponentTypeId invisiblePrototype = ct_position | ct_scale | ct_rotation | ct_material_id | ct_boundingBox;
 
 		VulkanEngine(EngineConfiguration config = defaultEngineConfiguration)
@@ -445,6 +445,8 @@ namespace vkengine
 					}
 				}
 			}
+			
+			invalidateComponents(ALL_COMPONENTS);
 
 			set.isPrepared = true;
 			set.isInvalidated = true; 
@@ -501,16 +503,6 @@ namespace vkengine
 	   				   		
 		void cullRenderSet(RenderSet& set, MAT4 view, MAT4 projection, float far)
 		{
-			/*Here is a crazy idea: you could sort your triangles according to the direction of their normal.
-
-			Lets say you have a vertex buffer who's corresponding direction vector is (1, 0, 0). 
-			Now during initialization, you put all triangles in this buffer that have a normal that doesn't differ 
-			from this buffer's direction for more than 45 degrees (arbitrary number).
-
-			On every frame, you can now calculate the difference between the buffer vector and the camera vector.
-			If the difference is large enough, you can completely skip drawing all the triangles because they 
-			will be back face culled anyway. This saves the GPU from running millions of vertex shader invocations.*/
-
 			static MAT4 lastVP = {}; 
 			MAT4 vp = projection * view; 
 
@@ -538,12 +530,10 @@ namespace vkengine
 					}
 			}
 
-			resetEntityDataInvalidation();
-
 			firstCull = false; 
 			set.meshDisposals.clear(); 
 
-			Frustum frustum = Frustum(projection * view);
+			Frustum frustum = Frustum(vp);
 
 			int instanceOffset = 0;
 			int totalInstanceCount = 0; 
@@ -551,17 +541,14 @@ namespace vkengine
 
 			std::array<std::vector<EntityId>, LOD_LEVELS> lodData;
 
-			VEC4* pP = (VEC4*)gpuBuffers.getBuffer(getCurrentFrame(), ct_position).mappedData;
-			QUAT* pR = (QUAT*)gpuBuffers.getBuffer(getCurrentFrame(), ct_rotation).mappedData;
-			VEC4* pS = (VEC4*)gpuBuffers.getBuffer(getCurrentFrame(), ct_scale).mappedData;
-			VEC4* pC = (VEC4*)gpuBuffers.getBuffer(getCurrentFrame(), ct_color).mappedData;
+			ENTITY_ID* entityIndices = (ENTITY_ID*)getComponentData(ct_render_index);
 
 			VEC4* positions = (VEC4*)getComponentData(ct_position);
 			QUAT* rotations = (QUAT*)getComponentData(ct_rotation);
 			VEC4* scales = (VEC4*)getComponentData(ct_scale);
 			VEC4* colors = (VEC4*)getComponentData(ct_color);
 			BBOX* bboxs = (BBOX*)getComponentData(ct_boundingBox);
-		
+
 			set.meshRequests.clear(); 
 			
 			if (configuration.cullingMode == CullingMode::full)
@@ -599,7 +586,7 @@ namespace vkengine
 									VEC3 center = box.Center(); 
 									VEC3 pos = VEC3(center.x, eye.y, center.z);
 									float distance = ABS(DISTANCE(eye, pos));
-
+																											
 									set.meshRequests.push_back({ entityId, mesh->meshId, distance });								
 								}
 								else
@@ -611,6 +598,7 @@ namespace vkengine
 										haslods = true;
 										VEC3 pos = mesh->aabb.center + VEC3(positions[entityId]);
 										float distance = ABS(DISTANCE(eye, pos));
+
 										UINT lodLevel = lodLevels - 1;
 
 										if (mesh->cullDistance == 0 || mesh->cullDistance > distance)
@@ -641,6 +629,7 @@ namespace vkengine
 										{
 											VEC3 pos = mesh->aabb.center + VEC3(positions[entityId]);
 											float distance = ABS(DISTANCE(eye, pos));
+											
 											if (distance < mesh->cullDistance)
 											{
 												lodData[0].push_back(entityId);
@@ -658,9 +647,9 @@ namespace vkengine
 								{
 									VEC3 center = box.Center();
 									VEC3 pos = VEC3(center.x, eye.y, center.z);
-									float distance = ABS(DISTANCE(eye, pos));
+									float distance = ABS(DISTANCE(eye, pos)); 
 									if (distance > far * 0.7f)
-									{
+									{											
 										set.meshDisposals.push_back({ entityId, mesh->meshId, distance, MAX(mesh->quantized.size(), mesh->vertices.size()), mesh->indices.size() });
 									}
 								}
@@ -699,13 +688,7 @@ namespace vkengine
 										instanceOffset += size;
 										totalInstanceCount += size;
 
-										// update data for render 
-										// -> this updates in the wrong order ???
-										auto& level = lodData[lodIndex];
-										for (int j = 0; j < level.size(); j++) memcpy(pP++, &positions[level[j]], sizeof(VEC4));
-										for (int j = 0; j < level.size(); j++) memcpy(pR++, &rotations[level[j]], sizeof(QUAT));
-										for (int j = 0; j < level.size(); j++) memcpy(pS++, &scales[level[j]], sizeof(VEC4));
-										for (int j = 0; j < level.size(); j++) memcpy(pC++, &colors[level[j]], sizeof(VEC4));
+										memcpy(&entityIndices[rinfo.command.firstInstance], lodData[lodIndex].data(), sizeof(ENTITY_ID) * lodData[lodIndex].size());
 									}
 								}
 							}
@@ -730,12 +713,7 @@ namespace vkengine
 								instanceOffset += instanceCount;
 								totalInstanceCount += instanceCount;
 
-								// copy data from entitydata to gpu buffers 
-								auto& level = lodData[0];
-								for (int j = 0; j < level.size(); j++) memcpy(pP++, &positions[level[j]], sizeof(VEC4));
-								for (int j = 0; j < level.size(); j++) memcpy(pR++, &rotations[level[j]], sizeof(QUAT));
-								for (int j = 0; j < level.size(); j++) memcpy(pS++, &scales[level[j]], sizeof(VEC4));
-								for (int j = 0; j < level.size(); j++) memcpy(pC++, &colors[level[j]], sizeof(VEC4));
+								memcpy(&entityIndices[rinfo.command.firstInstance], lodData[0].data(), sizeof(ENTITY_ID) * lodData[0].size());
 							}
 						}
 					}
@@ -750,6 +728,7 @@ namespace vkengine
 			set.culledInstanceCount = totalInstanceCount; 
 			set.isInvalidated = false;
 
+			invalidateComponents(ct_render_index); 
 			openMeshRequests = set.meshRequests.size(); 
 		}
 
@@ -760,12 +739,6 @@ namespace vkengine
 		{
 			// scene information
 			memcpy(sceneInfoBuffers[currentFrame].mappedData, &sceneInfo, sizeof(SceneInfoBufferObject));
-
-			if (configuration.cullingMode == CullingMode::disabled)
-			{
-				//## copy full entity data buffer as all entities are in order and used ##
-				syncDirty(currentFrame);
-			}
 
 			// handle any request for new meshes 
 			handleMeshRequests(set); 
@@ -931,7 +904,9 @@ namespace vkengine
 			updateUI(deltaTime); 	
 			updateGrid();
 			updateTextOverlay(); 
-			
+			updateSystems(); 
+			syncDirty(currentFrame);
+
 			vkResetFences(device, 1, &inFlightFences[currentFrame]); 
 			vkResetCommandBuffer(commandBuffers[currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
 

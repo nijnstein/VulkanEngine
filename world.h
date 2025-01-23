@@ -71,16 +71,22 @@ public:
 	IVEC2 getChunkXZFromWorldXYZ(VEC3 worldXYZ)
 	{
 		VEC3 p = VEC4(worldXYZ, 1) - worldOffset;
-		IVEC2 xz { p.x / CHUNK_SIZE_X, p.z / CHUNK_SIZE_Z };
+		IVEC2 xz { (int)p.x / CHUNK_SIZE_X, (int)p.z / CHUNK_SIZE_Z };
 		return xz; 
 	}	
 	VEC3 getGroundLevel(VEC2 xzWorld) 
 	{
-		IVEC2 chunkXY = { (int)xzWorld.x / CHUNK_SIZE_X, (int)xzWorld.y / CHUNK_SIZE_Z };
-		IVEC2 xy = { (int)xzWorld.x % CHUNK_SIZE_X, (int)xzWorld.y % CHUNK_SIZE_Z };
+		int x = xzWorld.x - worldOffset.x; 
+		int z = xzWorld.y - worldOffset.z;
+
+		IVEC2 chunkXZ = { x / CHUNK_SIZE_X, z / CHUNK_SIZE_Z };
+		IVEC2 xz = { x % CHUNK_SIZE_X, z % CHUNK_SIZE_Z };
 
 		// start at cloud level to get highest ground level at pos
-		BLOCKTYPE* pillar = &getChunk(chunkXY)->blocks[(CHUNK_SIZE_Y - 1) * CHUNK_SIZE_XZ + xy.y * CHUNK_SIZE_X + xy.x];
+		WorldChunk* chunk = getChunk(chunkXZ);
+		chunk->decompress(); 
+
+		BLOCKTYPE* pillar = &chunk->blocks[(CHUNK_SIZE_Y - 1) * CHUNK_SIZE_XZ + xz.y * CHUNK_SIZE_X + xz.x];
 
 		for (int i = CHUNK_SIZE_Y - 1; i >= 0; i--)
 		{
@@ -92,7 +98,7 @@ public:
 				continue;
 
 			default: 
-				return VEC3(xzWorld.x, (CHUNK_SIZE_Y - i), xzWorld.y);
+				return VEC3(xzWorld.x, (CHUNK_SIZE_Y - i - 1), xzWorld.y);
 			}
 		}
 
@@ -121,7 +127,6 @@ public:
 		gridMax = { MAX(gridMax[0], x), MAX(gridMax[1], z) };
 
 		WorldChunk chunk = WorldChunk(this);
-		chunk.allocate();
 
 		chunk.gridXZ = gridXZ;
 		chunk.gridIndex = id;
@@ -131,48 +136,6 @@ public:
 
 		return &chunks[id]; 
 	}
-
-	// 
-	// initialize first chunks, allocates space for blocks and sets worldsize and origin 
-	//
-	void initChunks(VulkanEngine* engine, IVEC2 fromXZ, IVEC2 untilXZ)
-	{
-		initialWorldSize = { untilXZ[0] - fromXZ[0] + 1, untilXZ[1] - fromXZ[1] + 1 };
-		worldOffset = VEC4(-CHUNK_SIZE_X * (initialWorldSize[0] / 2), CHUNK_SIZE_Y, -CHUNK_SIZE_Z * (initialWorldSize[1] / 2), 1);
-
-		// allocate a max of nx * nz  
-		for (int x = fromXZ[0]; x <= untilXZ[0]; x++)
-		{
-			for (int z = fromXZ[1]; z <= untilXZ[1]; z++)
-			{
-				createChunk(IVEC2(x, z));
-			}
-		}
-
-		setMaterialId(engine->initMaterial
-		(
-			"phong-material",
-			-1, -1, -1, -1,
-			engine->initVertexShader(PHONG_VERTEX_SHADER).id,
-			engine->initFragmentShader(PHONG_FRAGMENT_SHADER).id
-		).materialId);
-
-		generateEntities(engine);
-	}
- 
-    // generate entities for chunks that have none 
-	void generateEntities(VulkanEngine* engine)
-	{
-		for (int x = gridMin[0]; x <= gridMax[0]; x++)
-		{
-			for (int z = gridMin[1]; z <= gridMax[1]; z++)
-			{
-				auto chunk = getChunk({ x, z });
-				chunk->entityId = generateChunkEntity(engine, { x, z });
-			}
-		}
-	}
-
 	void enableChunkBorders(VulkanEngine* engine)
 	{
 		if (!enableBorders)
@@ -203,7 +166,7 @@ public:
 			enableBorders = false; 
 		}
 	}
-	inline bool chunkBordersEnabled() const {
+	inline bool getChunkBordersEnabled() const {
 		return enableBorders;
 	}
   	VEC4 getChunkBorderColorFromAxis(int x, int z)
@@ -213,6 +176,46 @@ public:
 		if (x < 0 && z >= 0)	return VEC4(0, 0, 1, 1);
 		/*if (x >= 0 && z < 0)*/return VEC4(1, 0, 1, 1);
 	}
+
+	// 
+	// initialize first chunks
+	// - allocates space for blocks 
+	// - sets worldsize and origin 
+	// - generate initial world chunks
+	// - create initial renderentities for chunks
+	//
+	void initChunks(VulkanEngine* engine, IVEC2 fromXZ, IVEC2 untilXZ)
+	{
+		initialWorldSize = { untilXZ[0] - fromXZ[0] + 1, untilXZ[1] - fromXZ[1] + 1 };
+		worldOffset = VEC4(-CHUNK_SIZE_X * (initialWorldSize[0] / 2), CHUNK_SIZE_Y, -CHUNK_SIZE_Z * (initialWorldSize[1] / 2), 1);
+
+		// allocate a max of nx * nz  
+		for (int x = fromXZ[0]; x <= untilXZ[0]; x++)
+		{
+			for (int z = fromXZ[1]; z <= untilXZ[1]; z++)
+			{
+				createChunk(IVEC2(x, z));
+			}
+		}
+
+		setMaterialId(engine->initMaterial
+		(
+			"phong-material",
+			-1, -1, -1, -1,
+			engine->initVertexShader(PHONG_VERTEX_SHADER).id,
+			engine->initFragmentShader(PHONG_FRAGMENT_SHADER).id
+		).materialId);
+
+		for (int x = gridMin[0]; x <= gridMax[0]; x++)
+		{
+			for (int z = gridMin[1]; z <= gridMax[1]; z++)
+			{
+				auto chunk = getChunk({ x, z });
+				chunk->entityId = generateChunkEntity(engine, { x, z });
+			}
+		}
+	}
+ 
 
 	EntityId generateChunkBorderEntity(VulkanEngine* engine, IVEC2 xz) 
 	{
@@ -272,6 +275,7 @@ public:
 		engine->setComponentData(entityId, ct_mesh_id, bboxMeshId); 
 		engine->setComponentData(entityId, ct_material_id, bboxMaterialId); 
 		engine->setComponentData(entityId, ct_chunk_id, wc->entityId); 
+		engine->setStatic(entityId, true);
 
 		return entityId; 
 	}
@@ -322,6 +326,7 @@ public:
 		engine->setComponentData(wc->entityId, ct_mesh_id,      mesh.meshId); 
 		engine->setComponentData(wc->entityId, ct_material_id,	mesh.materialId); 
 		engine->addComponentData(ct_chunk, &chunk, 1);
+		engine->setStatic(wc->entityId); 
 
 		if (enableBorders)
 		{
@@ -342,6 +347,8 @@ public:
 				VEC4(mesh->aabb.min + chunk->worldOffset, 1),
 				VEC4(mesh->aabb.max + chunk->worldOffset, 1)
 			});
+
+		chunk->compress(); 
 	}
 
 	MeshId generateChunkMesh(VulkanEngine* engine, IVEC2 xz)

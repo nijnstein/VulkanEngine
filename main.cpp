@@ -21,14 +21,21 @@ class TestApp : public vkengine::VulkanEngine
 
 	VEC3 playerPosition; 
 		
-	int nx = VERBOSE ? 4 : 140;
-	int nz = VERBOSE ? 4 : 140;
+	int nx = VERBOSE ? 14 : 200;
+	int nz = VERBOSE ? 14 : 200;
 
 	// index = x * nz + z
 
 	void initScene()
 	{
-		reserveCpuBuffers((nx + 1) * (nz + 1) + 1);
+		reserve((nx + 1) * (nz + 1) + 1);
+
+		addSystem(
+			"bbox-from_aabb_pos_scale",
+			ct_position | ct_scale | ct_mesh_id,
+			ct_boundingBox,
+		    (ComponentSystem::Stage)(ComponentSystem::Stage::OnCreate | ComponentSystem::Stage::BeforeFrameUpdate),
+			system_bbox_from_aabb);
 
  	    auto lineMaterial = initMaterial("wireframe")
 			->setFragmentShader(initFragmentShader(WIREFRAME_FRAG_SHADER).id)
@@ -53,22 +60,47 @@ class TestApp : public vkengine::VulkanEngine
 
 		cId = fromModel(cylinder, false, renderPrototype);
 		auto aabb = cylinder.aabb;
-		auto pos = VEC4(world.getGroundLevel({ 0.0f, 0.0f }) + VEC3(0, 0, 0), 1); 
+		auto pos = VEC4(world.getGroundLevel({ 0.0f, 0.0f }) + VEC3(0.5f, 0, 0.5f), 1); 
 		auto scale = VEC4(1); 
 		
 		setComponentData(cId, ct_position, pos);
 		setComponentData(cId, ct_scale, scale);		
-	
-		//
-		// a system should do this on all non static objects in each frame and on creation 
-		//
+	}
+ 
 
-		setComponentData(cId, ct_boundingBox, BBOX
+	static void system_bbox_from_aabb(EntityIterator* it)
+	{
+		VulkanEngine* engine = (VulkanEngine*)it->userdata; 
+
+		VEC3*	pos			= (VEC3*)	engine->getComponentData(ct_position);
+		VEC3*	scale		= (VEC3*)	engine->getComponentData(ct_scale); 
+		BBOX*	boxs		= (BBOX*)	engine->getComponentData(ct_boundingBox);
+		MeshId* meshids		= (MeshId*)	engine->getComponentData(ct_mesh_id); 
+		
+		MeshId last = -1;
+		AABB aabb{}; 
+
+		do
+		{
+			int id = it->cursor->index;
+
+			VEC3 p = pos[id];
+			VEC3 s = scale[id];
+			
+			MeshId meshId = meshids[id];
+			if (meshId != last)
 			{
-				VEC4(aabb.min, 1) * scale + pos,
-				VEC4(aabb.max, 1) * scale + pos
-			});
-	 
+				aabb = engine->getMesh(meshId).aabb;
+				last = meshId;
+			}
+
+			boxs[id] = BBOX
+			{
+				VEC4(aabb.min * s + p, 1),
+				VEC4(aabb.max * s + p, 1)
+			};
+		}
+		while (it->next()); 		
 	}
 
 	void initCamera()
@@ -93,6 +125,12 @@ class TestApp : public vkengine::VulkanEngine
 
 	void updateFrame(SceneInfoBufferObject& sceneInfo, float deltaTime)
 	{
+		VEC3 pos = cameraController.getPosition();
+		VEC3 ground = world.getGroundLevel({ pos.x, pos.z }) + VEC3(0, -1, 0);
+
+		playerPosition = ground; 
+		cameraController.setPosition(playerPosition); 
+
 		sceneInfo.lightPosition = VEC3(50, -100, -100);
 		sceneInfo.lightDirection = glm::normalize(sceneInfo.lightPosition);
 		sceneInfo.lightColor = VEC3(1, 1, 1);
@@ -128,7 +166,7 @@ class TestApp : public vkengine::VulkanEngine
 			}
 			if (ImGui::BeginMenu("World"))
 			{
-				if (world.chunkBordersEnabled())
+				if (world.getChunkBordersEnabled())
 				{
 					if (ImGui::MenuItem("Disable Chunk Borders"))
 					{

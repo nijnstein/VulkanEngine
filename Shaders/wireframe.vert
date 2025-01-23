@@ -30,6 +30,10 @@ layout(binding = 4) readonly buffer EntityColorArray {
 	vec4 data[1024 * 1024];  
 } colors;
 
+layout(binding = 5) readonly buffer EntityIndexArray {
+	int data[1024 * 1024];  
+} entities;
+
 
 layout(location = 0) in uvec4 Q;
 
@@ -54,10 +58,13 @@ vec3 getColor()
 
 void main()
 {
-    vec3 pos = positions.data[gl_InstanceIndex].xyz; 
-    vec3 scale = scales.data[gl_InstanceIndex].xyz; 
+    int entityId = entities.data[gl_InstanceIndex]; 
 
-    fragColor = getColor() * colors.data[gl_InstanceIndex].xyz;
+    vec3 pos = positions.data[entityId].xyz; 
+    vec3 scale = scales.data[entityId].xyz; 
+
+    fragColor = getColor() * colors.data[entityId].xyz;
+
     vec3 fragPosition = getPosition() * scale + pos;
     
     gl_Position = ubo.vp * vec4(fragPosition, 1.0);

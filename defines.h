@@ -45,7 +45,6 @@
 #include <span>
 
 //#include <fastnoise.h>
-//#include <trle_.h>
 #include "assets/fastnoise/FastNoise.h"
 
 #include "rect.h"
@@ -163,6 +162,9 @@ const char* const NORMAL_TEXTURE = "textures/Paving_Stone_1_Normal.jpg";
 #define ct_chunk_id       (1 << 8)
 #define ct_mesh_id        (1 << 9)
 #define ct_material_id    (1 << 10)
+#define ct_render_index   (1 << 11) // translation table from renderindex to entityid
+
+#define ct_created        (1 << 31) // only set on entity if its new 
 
 #define CHUNK_SIZE_X 16  	// 16x512x16 = 131072 / 128kb
 #define CHUNK_SIZE_Y 256    // = x24 = 6291456 vertices max

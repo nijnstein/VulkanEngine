@@ -52,12 +52,15 @@ namespace vkengine
         VEC3 getWorldPosOfMouse(VEC2 mousePosition);
         MAT4 getViewProjectionMatrix() const { return viewProjection; }
 
+        void setPosition(VEC3 position) {
+            m_extrinsic.position = position; 
+            updateMatrices(); 
+        }
         void setCameraType(CameraType type)
         {
             m_cameraType = type; 
             updateMatrices(); 
         }
-
         void setViewport(IVEC2 extent)
         {
             m_intrinsic.viewPortWidth = extent.x;

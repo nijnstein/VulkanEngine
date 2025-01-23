@@ -197,7 +197,7 @@ namespace vkengine
 		lods.push_back(lod0);
 
 		// no use running this on very small meshes
-		if (indices.size() > 24)
+		if (indices.size() > 48)
 		{
 			unsigned int* indices = this->indices.data();
 			unsigned int indexCount = this->indices.size();
@@ -250,7 +250,7 @@ namespace vkengine
 						sizeof(PACKED_VERTEX),
 						target_index_count,
 						target_error,
-						0,
+						 meshopt_SimplifyLockBorder,
 						&lod_error);
 				}
 
