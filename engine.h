@@ -12,8 +12,6 @@ namespace vkengine
 		RenderPass renderPass; 
 		RenderSet renderSet; 
 
-		input::InputManager inputManager;
-
 		ui::UIOverlay uiOverlay;
 		TextOverlay* textOverlay{ nullptr };
 
@@ -25,13 +23,15 @@ namespace vkengine
 
 
  	public:
-		const ComponentTypeId renderPrototype = ct_position | ct_scale | ct_rotation | ct_mesh_id | ct_material_id | ct_boundingBox | ct_render_index;
+		const ComponentTypeId renderPrototype = ct_position | ct_scale | ct_rotation | ct_mesh_id | ct_material_id | ct_boundingBox | ct_render_index | ct_distance;
 		const ComponentTypeId invisiblePrototype = ct_position | ct_scale | ct_rotation | ct_material_id | ct_boundingBox;
 
 		VulkanEngine(EngineConfiguration config = defaultEngineConfiguration)
 		{
 			configuration = config; 
 		}
+		
+		input::InputManager inputManager;
 		CameraController cameraController;
 		ui::UISettings uiSettings;
 
@@ -519,15 +519,11 @@ namespace vkengine
 				||
 				set.isInvalidated
 				||
+				frustumChanged
+				||
 				firstCull /* first init */ ))
 			{
-				if (!isEntityDataInvalidated()) {
-					return;
-				}
-				else
-					if (!frustumChanged) {
-						return;
-					}
+				return;
 			}
 
 			firstCull = false; 
@@ -548,6 +544,7 @@ namespace vkengine
 			VEC4* scales = (VEC4*)getComponentData(ct_scale);
 			VEC4* colors = (VEC4*)getComponentData(ct_color);
 			BBOX* bboxs = (BBOX*)getComponentData(ct_boundingBox);
+			FLOAT* distances = (FLOAT*)getComponentData(ct_distance);
 
 			set.meshRequests.clear(); 
 			
@@ -576,29 +573,31 @@ namespace vkengine
 
 						for (auto entityId : set.meshInstances[mesh->meshId])
 						{
-							BBOX box = bboxs[entityId];
-																					
-							if (frustum.IsBoxVisible(box.min, box.max))
+							FLOAT distance = distances[entityId];
+							bool visible = distance >= -CHUNK_SIZE_Y / 2; 
+
+							if (visible)
+							{
+								BBOX box = bboxs[entityId];
+								visible = frustum.IsBoxVisible(box.min, box.max);
+							}
+
+							if (visible)
 							{
 								if (!mesh->isLoaded() && mesh->requestMesh != nullptr && mesh->userdataPtr != nullptr)
 								{
 									// request mesh data for next frame, closest should be loaded first 									
-									VEC3 center = box.Center(); 
-									VEC3 pos = VEC3(center.x, eye.y, center.z);
-									float distance = ABS(DISTANCE(eye, pos));
-																											
 									set.meshRequests.push_back({ entityId, mesh->meshId, distance });								
 								}
 								else
 								{
 									// add to render data
 									UINT lodLevels = mesh->lods.size(); 
+									distance = ABS(distance); 
+
 									if (configuration.enableLOD && lodLevels > 1)
 									{
 										haslods = true;
-										VEC3 pos = mesh->aabb.center + VEC3(positions[entityId]);
-										float distance = ABS(DISTANCE(eye, pos));
-
 										UINT lodLevel = lodLevels - 1;
 
 										if (mesh->cullDistance == 0 || mesh->cullDistance > distance)
@@ -627,9 +626,6 @@ namespace vkengine
 										}
 										else
 										{
-											VEC3 pos = mesh->aabb.center + VEC3(positions[entityId]);
-											float distance = ABS(DISTANCE(eye, pos));
-											
 											if (distance < mesh->cullDistance)
 											{
 												lodData[0].push_back(entityId);
@@ -645,12 +641,9 @@ namespace vkengine
 								// these will be removed from the buffers if room is needed in this frame
 								if (mesh->isLoaded() && mesh->requestMesh != nullptr && mesh->userdataPtr)
 								{
-									VEC3 center = box.Center();
-									VEC3 pos = VEC3(center.x, eye.y, center.z);
-									float distance = ABS(DISTANCE(eye, pos)); 
-									if (distance > far * 0.7f)
+									if (ABS(distance) > far * 0.7f)
 									{											
-										set.meshDisposals.push_back({ entityId, mesh->meshId, distance, MAX(mesh->quantized.size(), mesh->vertices.size()), mesh->indices.size() });
+										set.meshDisposals.push_back({ entityId, mesh->meshId, ABS(distance), MAX(mesh->quantized.size(), mesh->vertices.size()), mesh->indices.size() });
 									}
 								}
 							}
@@ -897,6 +890,9 @@ namespace vkengine
 			sceneInfo.normal = glm::transpose(glm::inverse(MAT4(1)));
 
 			updateFrame(sceneInfo, deltaTime);
+
+			updateSystems(currentFrame); 
+			
 			updateRenderSet(renderSet, sceneInfo.view, sceneInfo.proj, cameraController.getIntrinsic().far);
 			updateFrameData(renderSet, currentFrame, sceneInfo);
 			updateIndirectRenderInfo(renderSet, currentFrame); 
@@ -904,7 +900,7 @@ namespace vkengine
 			updateUI(deltaTime); 	
 			updateGrid();
 			updateTextOverlay(); 
-			updateSystems(); 
+			
 			syncDirty(currentFrame);
 
 			vkResetFences(device, 1, &inFlightFences[currentFrame]); 

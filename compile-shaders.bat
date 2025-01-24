@@ -1,5 +1,5 @@
-C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\shader.vert -o "compiled shaders\vert.spv"
-C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\shader.frag -o "compiled shaders\frag.spv"
+C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\textured.vert -o "compiled shaders\textured.vert.spv"
+C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\textured.frag -o "compiled shaders\textured.frag.spv"
 
 C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\ui.vert -o "compiled shaders\ui.vert.spv"
 C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\ui.frag -o "compiled shaders\ui.frag.spv"
@@ -9,9 +9,6 @@ C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\grid.frag -o "compiled shaders\grid
 
 C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\phong.vert -o "compiled shaders\phong.vert.spv"
 C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\phong.frag -o "compiled shaders\phong.frag.spv"
-
-C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\sun.vert -o "compiled shaders\sun.vert.spv"
-C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\sun.frag -o "compiled shaders\sun.frag.spv"
 
 C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\pbr.vert -o "compiled shaders\pbr.vert.spv"
 C:/VulkanSDK/1.3.296.0/Bin/glslc.exe shaders\pbr.frag -o "compiled shaders\pbr.frag.spv"

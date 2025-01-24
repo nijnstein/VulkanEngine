@@ -1794,7 +1794,7 @@ namespace vkengine
         models[model.modelId] = model;
     }
 
-    MeshId VulkanDevice::registerMesh(MeshInfo mesh)
+    MeshId VulkanDevice::registerMesh(MeshInfo& mesh)
     {
         mesh.meshId = (MeshId)meshes.size();
 

@@ -237,10 +237,13 @@ namespace vkengine
 			ImGui::InputInt("Material: ", (int*)engine->getComponentData(id, ct_material_id));
 
 			Chunk* chunk = (Chunk*)engine->getComponentData(id, ct_chunk);
-			ImGui::InputInt("Chunk: ", &chunk->chunkId);
-			ImGui::InputFloat2("Chunk Grid XY", &chunk->gridXZ[0]);
-			ImGui::InputFloat3("Chunk min: ", &chunk->min[0]);
-			ImGui::InputFloat3("Chunk max: ", &chunk->max[0]);
+			if (chunk != nullptr)
+			{
+				ImGui::InputInt("Chunk: ", &chunk->chunkId);
+				ImGui::InputFloat2("Chunk Grid XY", &chunk->gridXZ[0]);
+				ImGui::InputFloat3("Chunk min: ", &chunk->min[0]);
+				ImGui::InputFloat3("Chunk max: ", &chunk->max[0]);
+			}
 
 			// check if culled or not 
 			bool inSet = false;

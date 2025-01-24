@@ -64,8 +64,8 @@ public:
 
 	BBOX getWorldDimensions() { 
 		return {
-			VEC4(gridMin[0] * CHUNK_SIZE_X, 0, gridMin[1] * CHUNK_SIZE_Y, 1),
-			VEC4(gridMax[0] * CHUNK_SIZE_X, CHUNK_SIZE_Y,gridMax[1] * CHUNK_SIZE_Y, 1)
+			VEC4(gridMin[0] * CHUNK_SIZE_X, 0, gridMin[1] * CHUNK_SIZE_Z, 1),
+			VEC4(gridMax[0] * CHUNK_SIZE_X, CHUNK_SIZE_Y,gridMax[1] * CHUNK_SIZE_Z, 1)
 		};
 	}
 	IVEC2 getChunkXZFromWorldXYZ(VEC3 worldXYZ)
@@ -104,11 +104,7 @@ public:
 
 		return VEC3(0); 
 	}
-
-	WorldChunk* getChunk(UINT index)
-	{
-		return &chunks[index];
-	}
+	
 	WorldChunk* getChunk(IVEC2 gridXZ)
 	{
 		int x = gridXZ[0];
@@ -186,7 +182,7 @@ public:
 	//
 	void initChunks(VulkanEngine* engine, IVEC2 fromXZ, IVEC2 untilXZ)
 	{
-		initialWorldSize = { untilXZ[0] - fromXZ[0] + 1, untilXZ[1] - fromXZ[1] + 1 };
+		initialWorldSize = (untilXZ[0] - fromXZ[0]) + IVEC2(1, 1);
 		worldOffset = VEC4(-CHUNK_SIZE_X * (initialWorldSize[0] / 2), CHUNK_SIZE_Y, -CHUNK_SIZE_Z * (initialWorldSize[1] / 2), 1);
 
 		// allocate a max of nx * nz  
@@ -293,7 +289,7 @@ public:
 		};
 		box.align(); 
 
-		auto prototype = ct_position | ct_rotation | ct_scale | ct_chunk_id | ct_boundingBox | ct_chunk | ct_mesh_id; 
+		auto prototype = engine->renderPrototype | ct_chunk;
 
 		Chunk chunk{};
 		chunk.chunkId = wc->entityId = engine->createEntity(prototype);

@@ -180,6 +180,7 @@
     <ClInclude Include="engine.h" />
     <ClInclude Include="mesh.h" />
     <ClInclude Include="model.h" />
+    <ClInclude Include="player.h" />
     <ClInclude Include="render.h" />
     <ClInclude Include="shader.h" />
     <ClInclude Include="sphere.h" />
@@ -258,10 +259,8 @@
     <None Include="Shaders\phong.frag" />
     <None Include="Shaders\phong.vert" />
     <None Include="Shaders\prefilterenvmap.frag" />
-    <None Include="Shaders\shader.frag" />
-    <None Include="Shaders\shader.vert" />
-    <None Include="Shaders\sun.frag" />
-    <None Include="Shaders\sun.vert" />
+    <None Include="Shaders\textured.frag" />
+    <None Include="Shaders\textured.vert" />
     <None Include="Shaders\ui.frag" />
     <None Include="Shaders\ui.vert" />
   </ItemGroup>

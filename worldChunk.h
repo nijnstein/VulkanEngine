@@ -195,8 +195,7 @@ public:
 	EntityId entityId{ -1 };
 	EntityId borderEntityId{ -1 };
 
-	BYTE* blocks;
-	
+	BYTE* blocks;	
 
 	IVEC2 gridXZ; 
 	UINT gridIndex;

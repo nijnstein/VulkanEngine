@@ -151,7 +151,7 @@ namespace vkengine
 			for (const auto& shape : shapes)
 			{
 				MeshInfo mesh{};
-				mesh.meshId = nextMeshId();
+				mesh.meshId = -1;
 				mesh.materialId = material.materialId;
 				mesh.name = shape.name;
 

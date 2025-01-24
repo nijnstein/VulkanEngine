@@ -3,8 +3,8 @@
 namespace vkengine
 { 
 	typedef int32_t EntityId;
-	typedef int64_t ComponentTypeId;
-	constexpr ComponentTypeId ALL_COMPONENTS = LLONG_MAX; 
+	typedef uint64_t ComponentTypeId;
+	constexpr ComponentTypeId ALL_COMPONENTS = ULLONG_MAX; 
 
 	struct Entity
 	{
@@ -19,6 +19,7 @@ namespace vkengine
 		bool syncToGPU;
 		size_t elementSize; 
 		bool sparse; 
+		bool isTag; 
 	};
 
 	struct EntityIterator
@@ -102,14 +103,13 @@ namespace vkengine
 				if (c.syncToGPU)
 				{
 					c.buffers.resize(MAX_FRAMES_IN_FLIGHT);
-					c.dirty.resize(MAX_FRAMES_IN_FLIGHT);
-					for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) c.dirty[i] = true;
 				}
 				else
 				{
 					c.buffers = {};
-					c.dirty = {};
 				}
+				c.dirty.resize(MAX_FRAMES_IN_FLIGHT);
+				for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) c.dirty[i] = true;
 			}
 
 			uint32_t c = std::max((uint32_t)1, reserveSize > 0 && reserveSize >= entityCount() ? reserveSize : entityCount());
@@ -189,26 +189,25 @@ namespace vkengine
 
 			for (auto& info : gpuBuffers.componentBuffers)
 			{
+				if (info.sparse || info.isTag) continue;
+
 				if (size > info.dataCount)
 				{
-					if (!info.sparse)
-					{
-						size_t grow = growStepSize(info.dataCount, size - info.dataCount);
-						size_t target = info.dataCount + grow;
+					size_t grow = growStepSize(info.dataCount, size - info.dataCount);
+					size_t target = info.dataCount + grow;
 
-						if (info.dataCount == 0)
-						{
-							info.data = malloc(target * info.elementSize);
-							info.dataCount = target;
-						}
-						if (info.dataCount < size)
-						{
-							void* n = malloc(target * info.elementSize);
-							memcpy(n, info.data, info.dataCount * info.elementSize);
-							free(info.data);
-							info.data = n;
-							info.dataCount = target;
-						}
+					if (info.dataCount == 0)
+					{
+						info.data = malloc(target * info.elementSize);
+						info.dataCount = target;
+					}
+					if (info.dataCount < size)
+					{
+						void* n = malloc(target * info.elementSize);
+						memcpy(n, info.data, info.dataCount * info.elementSize);
+						free(info.data);
+						info.data = n;
+						info.dataCount = target;
 					}
 				}
 			}
@@ -231,23 +230,16 @@ namespace vkengine
 
 			bool syncToGPU;
 			bool sparse;                 // uses pointers to data instead of the data itself, does not force unique ids or anything  
+			bool isTag;                  // contains no data but is used as a flag 
 		};
 
 		typedef  void (*fpSystemExecute)(EntityIterator*);
 
 		struct ComponentSystem
 		{
-			enum Stage {
-				DontCare = 1,
-				BeforeFrameUpdate = 2,
-				BeforeFrameDraw = 4,
-				OnCreate = 8
-			};
-
 			std::string name;
 			ComponentTypeId readMask{};
 			ComponentTypeId writeMask{};
-			Stage stage{ DontCare };
 
 			// funcptr to execute on entity data;  entity, component pointers, userdata
 			void (*execute) (EntityIterator* it);
@@ -285,18 +277,19 @@ namespace vkengine
 						return componentBuffers[i].dirty[frame];
 				return false;
 			}
-			void syncToGPU(uint32_t frame, ComponentTypeId component)
+			void sync(uint32_t frame)
 			{
 				for (auto& cbuffer : componentBuffers)
-					if (cbuffer.component & component && cbuffer.dirty.size() > 0 && cbuffer.dirty[frame])
+				{
+					if (cbuffer.dirty.size() > 0 && cbuffer.dirty[frame])
 					{
-						if (cbuffer.syncToGPU)
+						if (cbuffer.syncToGPU && cbuffer.elementSize > 0)
 						{
 							memcpy(cbuffer.buffers[frame].mappedData, cbuffer.data, cbuffer.elementSize * cbuffer.dataCount);
 						}
 						cbuffer.dirty[frame] = false;
-						return;
 					}
+				}
 			}
 
 		} gpuBuffers;
@@ -329,8 +322,7 @@ namespace vkengine
 				for (int i = 0; i < c.dirty.size(); i++) c.dirty[i] = false;
 			}
 		}
-
-		void runSystemStage(ComponentSystem::Stage stage, ComponentTypeId mask, EntityId entity)
+		void runSystemStage(ComponentTypeId mask, EntityId entity)
 		{
 			int n = 0;
 			ComponentTypeId invalidate{ 0 };
@@ -338,14 +330,12 @@ namespace vkengine
 			for (auto& system : systems)
 			{
 				ComponentTypeId selector = (system.readMask | system.writeMask);
-				if (((system.stage & stage) == stage)
-					&&
-					(selector & mask) == selector)
+				if ((selector & mask) == selector)
 				{
 					Entity* entity = &entities[0];
 
 					EntityIterator it{
-						.selector = selector,
+						.selector = selector & ~(ct_camera),
 						.cursor = entity - 1,
 						.last = entity,
 						.userdata = systemUserData
@@ -364,28 +354,26 @@ namespace vkengine
 				invalidateComponents(invalidate);
 			}
 		}
-		void runSystemStage(ComponentSystem::Stage stage, ComponentTypeId mask)
+		void runSystemStage(ComponentTypeId mask, UINT currentFrame)
 		{
 			int n = 0;
 			ComponentTypeId invalidate{ 0 };
-			ComponentTypeId readDirty = getComponentInvalidationMask();
+			ComponentTypeId readDirty = getComponentInvalidationMask(currentFrame);
 
 			for (auto& system : systems)
 			{
-				ComponentTypeId selector = system.readMask | system.writeMask;
+				ComponentTypeId selector = system.readMask | system.writeMask; 
 
 				// - stage must match
 				// - input read mask must be dirty 
 				// - mask must select system
-				if (((stage & ComponentSystem::Stage::DontCare) | ((system.stage & stage) == stage))
-				 	&					
-				 	((readDirty & system.readMask != 0) & ((selector & mask) == selector)))
+				if ((readDirty & system.readMask) != 0 && ((selector & mask) == selector))
 				{
 					Entity* entity = &entities[0];
 					Entity* last = &entities[entityCount() - 1];
 
 					EntityIterator it{
-						.selector = selector,
+						.selector = selector & ~(ct_camera),
 						.cursor = entity - 1,
 						.last = last,
 						.userdata = systemUserData
@@ -445,17 +433,27 @@ namespace vkengine
 			}
 			return false;
 		}
-		ComponentTypeId getComponentInvalidationMask()
+		ComponentTypeId getComponentInvalidationMask(UINT frame)
 		{
 			ComponentTypeId mask{ 0 };
 			for (auto& c : gpuBuffers.componentBuffers)
 			{
-				for (bool b : c.dirty)
+				if (frame < c.dirty.size() && c.dirty[frame])
 				{
 					mask |= c.component;
 				}
 			}
 			return mask;
+		}
+		void resetEntityDataInvalidation(ComponentTypeId id)
+		{
+			for (auto& c : gpuBuffers.componentBuffers)
+			{
+				if ((c.component & id) != 0)
+				{
+					for (int i = 0; i < c.dirty.size(); i++) c.dirty[i] = false;
+				}
+			}
 		}
 
 		EntityId createEntity(Entity entity)
@@ -549,6 +547,9 @@ namespace vkengine
 			{
 				if (cbuffer.component == id)
 				{
+					if (cbuffer.isTag)
+						std::runtime_error("attempt to get component data from a tag"); 
+
 					return cbuffer.data;
 				}
 			}
@@ -559,6 +560,9 @@ namespace vkengine
 			{
 				if (cbuffer.component == id)
 				{
+					if (cbuffer.isTag)
+						std::runtime_error("attempt to get component data from a tag");
+
 					BYTE* p = (BYTE*)cbuffer.data;
 
 					if (!cbuffer.sparse)
@@ -589,12 +593,16 @@ namespace vkengine
 			{
 				if (cbuffer.component == id)
 				{
+					if (cbuffer.isTag)
+						std::runtime_error("attempt to get component data from a tag");
+
 					dataCount = cbuffer.sparse ? cbuffer.dataCount : entityCount();
 					return cbuffer.data;
 				}
 			}
 		}
 
+		// set component data, invalidate components set 
 		template<typename T> void setComponentData(EntityId entity, ComponentTypeId component, T data)
 		{
 			for (auto& cbuffer : gpuBuffers.componentBuffers)
@@ -602,9 +610,11 @@ namespace vkengine
 				if (cbuffer.component == component)
 				{
 					if (cbuffer.sparse)
-					{
 						std::runtime_error("entity manager cannot use setComponentData on a sparse buffer");
-					}
+
+					if (cbuffer.isTag)
+						std::runtime_error("attempt to set component data on a tag");
+
 
 					BYTE* p = (BYTE*)cbuffer.data;
 					p += cbuffer.elementSize * entity;
@@ -615,6 +625,7 @@ namespace vkengine
 				}
 			}
 		}
+
 		inline void setStatic(EntityId id, bool isStatic = true)
 		{
 			if ((id >= 0) & (id < entityCount()))
@@ -636,10 +647,12 @@ namespace vkengine
 			{
 				if (cbuffer.component == id)
 				{
+					if (cbuffer.isTag)
+						std::runtime_error("attempt to add component data to a tag");
+
 					if (!cbuffer.sparse)
-					{
 						std::runtime_error("can only add components to sparse buffers");
-					}
+
 					if (cbuffer.dataCount == 0)
 					{
 						cbuffer.data = malloc((count + reserve) * cbuffer.elementSize);
@@ -672,14 +685,13 @@ namespace vkengine
 			}
 		}
 
-		void addSystem(std::string name, ComponentTypeId readMask, ComponentTypeId writeMask, ComponentSystem::Stage stage, fpSystemExecute executer)
+		void addSystem(std::string name, ComponentTypeId readMask, ComponentTypeId writeMask, fpSystemExecute executer)
 		{
 			ComponentSystem system
 			{
 				.name = name,
 				.readMask = readMask,
 				.writeMask = writeMask,
-				.stage = stage,
 				.execute = executer
 			};
 
@@ -692,8 +704,9 @@ namespace vkengine
 			{
 				return;
 			}
+
 			ensureBufferSizes(entityCount());
-			gpuBuffers.syncToGPU(frame, ALL_COMPONENTS);
+			gpuBuffers.sync(frame);
 		};
 		void reserve(SIZE count)
 		{
@@ -705,12 +718,12 @@ namespace vkengine
 			systemUserData = userdata; 
 		}
 		
-		void updateSystems()
+		void updateSystems(UINT frame)
 		{
 			std::vector<EntityId> copy{ created };
 			created.clear();
 
-			runSystemStage(ComponentSystem::DontCare, ALL_COMPONENTS); 			
+			runSystemStage(ALL_COMPONENTS, frame); 			
 
 			for (EntityId id : copy)
 			{

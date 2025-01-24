@@ -19,7 +19,7 @@ struct EngineConfiguration
 	//bool enableChunkBorders = true; 
 
 	CullingMode cullingMode = CullingMode::full;
-	float textScale = 2.0f;
+	float textScale = 1.0f;
 
 
 	//#
@@ -27,7 +27,7 @@ struct EngineConfiguration
 	//# 
 	std::array<VkFormat, 1> colorFormat = { VK_FORMAT_B8G8R8A8_SRGB };
 	std::array<VkFormat, 3> depthFormat = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT };
-	VkClearColorValue clearColor = { 0.2f,0.2f,0.7f, 1.0f };
+	VkClearColorValue clearColor = { 0.2f,0.2f, 0.7f, 1.0f };
 
 	SIZE maxIndirectCommandCount = 1024 * 16; 
 

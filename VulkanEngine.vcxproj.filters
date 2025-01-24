@@ -208,6 +208,9 @@
     <ClInclude Include="ui.h">
       <Filter>VulkanEngine\Overlays</Filter>
     </ClInclude>
+    <ClInclude Include="player.h">
+      <Filter>World</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="debug.cpp">
@@ -332,10 +335,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Shaders\shader.frag">
+    <None Include="Shaders\textured.frag">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Shaders\shader.vert">
+    <None Include="Shaders\textured.vert">
       <Filter>Shaders</Filter>
     </None>
     <None Include="Shaders\ui.frag">
@@ -354,12 +357,6 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="Shaders\phong.vert">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\sun.frag">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\sun.vert">
       <Filter>Shaders</Filter>
     </None>
     <None Include="Shaders\pbr.frag">

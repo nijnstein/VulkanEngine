@@ -23,49 +23,49 @@ namespace vkengine
 
 	bool CameraController::updateFpsCamera(input::InputManager inputManager, float deltaTime)
 	{
-		// look
-		if (inputManager.isMouseButtonDown(MouseButton::right))
+		if (m_controlEnabled)
 		{
-			const VEC2 mouseMovement = inputManager.getMouseMovement();
-			m_yaw -= m_mouseSensitivity * mouseMovement.x;
-			m_pitch += m_mouseSensitivity * mouseMovement.y;
+			// look
+			if (inputManager.isMouseButtonDown(MouseButton::right))
+			{
+				const VEC2 mouseMovement = inputManager.getMouseMovement();
+				m_yaw -= m_mouseSensitivity * mouseMovement.x;
+				m_pitch += m_mouseSensitivity * mouseMovement.y;
+			}
+
+			// zoom
+			FLOAT scroll = inputManager.getMouseScroll();
+			if (scroll != 0)
+			{
+				scroll = scroll * deltaTime * m_scrollSpeed;
+				m_intrinsic.fov = MAX(2.0f, MIN(90.0f, m_intrinsic.fov - scroll));
+			}
+			m_pitch = MIN(MAX(m_pitch, pitchMin), pitchMax);
+
+			const FLOAT yawRadian = RAD(m_yaw);
+			const FLOAT pitchRadian = RAD(m_pitch);
+
+			//construct coordinate system
+			m_extrinsic.forward.x = cos(yawRadian) * cos(pitchRadian);
+			m_extrinsic.forward.y = sin(pitchRadian);
+			m_extrinsic.forward.z = sin(yawRadian) * cos(pitchRadian);
+			m_extrinsic.forward = NORM(m_extrinsic.forward);
 		}
-
-		// zoom
-		FLOAT scroll = inputManager.getMouseScroll(); 
-		if (scroll != 0)
-		{
-			scroll = scroll * deltaTime * m_scrollSpeed; 
-			m_intrinsic.fov = MAX(2.0f, MIN(90.0f, m_intrinsic.fov - scroll));
-		}
-
-		m_pitch = MIN(MAX(m_pitch, pitchMin), pitchMax);
-
-		const FLOAT yawRadian = RAD(m_yaw);
-		const FLOAT pitchRadian = RAD(m_pitch);
-
-		//construct coordinate system
-		m_extrinsic.forward = VEC3(
-			cos(pitchRadian) * cos(yawRadian),
-			-sin(pitchRadian),
-			cos(pitchRadian) * sin(yawRadian));
-
-		m_extrinsic.forward.x = cos(yawRadian) * cos(pitchRadian);
-		m_extrinsic.forward.y = sin(pitchRadian);
-		m_extrinsic.forward.z = sin(yawRadian) * cos(pitchRadian);
-		m_extrinsic.forward = NORM(m_extrinsic.forward);
 
 		m_extrinsic.right = NORM(CROSS(m_extrinsic.forward, VEC3(0.0f, -1.0f, 0.0f)));  // normalize the vectors, because their length gets closer to 0 the more you look up or down which results in slower movement.
 		m_extrinsic.up = NORM(CROSS(m_extrinsic.right, m_extrinsic.forward));
 
-		// handle keyboard 
+		// handle keyboard (if enabled)
 		velocity = VEC3(0);
-		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyW)) { velocity += m_extrinsic.forward; }
-		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyS)) { velocity -= m_extrinsic.forward; }
-		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyA)) { velocity -= m_extrinsic.right; }
-		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyD)) { velocity += m_extrinsic.right; } 
-		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keySpacebar)) { /* jump */ }
-		if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyShiftLeft)) { velocity *= 3.0f; }
+		if (m_controlEnabled)
+		{
+			if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyW)) { velocity += m_extrinsic.forward; }
+			if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyS)) { velocity -= m_extrinsic.forward; }
+			if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyA)) { velocity -= m_extrinsic.right; }
+			if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyD)) { velocity += m_extrinsic.right; }
+			if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keySpacebar)) { /* jump */ }
+			if (inputManager.isKeyboardKeyDown(input::KeyboardKey::keyShiftLeft)) { velocity *= 3.0f; }
+		}
 
 		m_extrinsic.position = this->m_extrinsic.position + velocity * m_movementSpeed * deltaTime;
 		m_extrinsic.lookatTarget = m_extrinsic.position + m_extrinsic.forward;
@@ -168,6 +168,13 @@ namespace vkengine
 			case CameraType::ArcBall:
 				return updateArcBallCamera(inputManager, deltaTime); 
 		}
+	}
+
+	void CameraController::update(CameraExtrinsic cam, CameraIntrinsic view)
+	{
+		this->m_extrinsic = cam;
+		this->m_intrinsic = view; 
+		updateMatrices();
 	}
 
 	VEC3 CameraController::getWorldPosOfMouse(VEC2 mousePosition)

@@ -41,7 +41,23 @@ namespace vkengine
 
         static BBox fromMinMax(VEC4 _min, VEC4 _max)
         {
-            return { _min, _max };
+            BBox box = { _min, _max };
+            box.align(); 
+            return box; 
+        }
+
+        static BBox fromAABB(AABB aabb, VEC3 pos, VEC3 scale)
+        {
+            BBox box = { VEC4(aabb.min * scale + pos, 1), VEC4(aabb.max * scale + pos, 1) };
+            box.align();
+            return box;
+        }
+
+        static BBox fromAABB(AABB aabb, VEC4 pos, VEC4 scale)
+        {
+            BBox box = { VEC4(aabb.min, 1) * scale + pos, VEC4(aabb.max, 1) * scale + pos };
+            box.align();
+            return box;
         }
     };
 

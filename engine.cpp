@@ -544,19 +544,30 @@ namespace vkengine
 	{
 		setUserData(this); 
 
-		return {// id                sync          size                             sparse 
-			{ct_position,			true,		sizeof(VEC4),						false},		// pos 
-			{ct_rotation,			true,		sizeof(QUAT),						false},		// rot
-			{ct_scale,				true,		sizeof(VEC4),						false},		// scale
-			{ct_color,				true,		sizeof(VEC4),						false},		// color
-			{ct_render_index,    	true,		sizeof(EntityId),					false},		// draw instance id -> entity id
-			{ct_boundingBox,		false,		sizeof(BBOX),                       false},		// bbox
-			{ct_linearVelocity,		false,		sizeof(VEC4),						false},		// linear V 
-			{ct_radialVelocity,		false,		sizeof(VEC4),						false},		// radial V 
-			{ct_chunk,				false,		sizeof(Chunk), 						true},		// chunks
-			{ct_chunk_id,    		false,		sizeof(UINT),						false},		// chunk id 
-			{ct_mesh_id,    		false,		sizeof(MeshId),					    false},		// mesh  
-			{ct_material_id,    	false,		sizeof(MaterialId),					false},		// material
+		return {// id                sync          size                             sparse 			istag 
+			{ct_position,			true,		sizeof(VEC4),						false,			false},		// pos 
+			{ct_rotation,			true,		sizeof(QUAT),						false,			false},		// rot
+			{ct_scale,				true,		sizeof(VEC4),						false,			false},		// scale
+			{ct_color,				true,		sizeof(VEC4),						false,			false},		// color
+			
+			// rendering 
+			{ct_render_index,    	true,		sizeof(EntityId),					false,			false},		// draw instance id -> entity id
+			{ct_boundingBox,		false,		sizeof(BBOX),                       false,			false},		// bbox
+			{ct_chunk,				false,		sizeof(Chunk), 						true ,			false},		// chunks
+			{ct_chunk_id,    		false,		sizeof(UINT),						false,			false},		// chunk id 
+			{ct_mesh_id,    		false,		sizeof(MeshId),					    false,			false},		// mesh  
+			{ct_material_id,    	false,		sizeof(MaterialId),					false,			false},		// material
+			{ct_distance,           false,      sizeof(FLOAT),                      false,			false},
+		
+			// physics 
+			{ct_mass,               false,      sizeof(FLOAT),                      false,			false},
+			{ct_linear_velocity,    false,      sizeof(VEC4),                       false,			false},
+			{ct_radial_velocity,    false,      sizeof(VEC4),                       false,			false},
+			{ct_collider,           false,      sizeof(UINT),                       false,			false},
+
+			// events 
+			{ct_camera,             false,      0,	         						true,			true},      // a flag/tag from which to trigger invalidations 
+			{ct_player,				false,		0,									true,           true}
 		};
 	}
 	EntityId VulkanEngine::attachEntity(Entity entity, VEC3 pos, QUAT rot, VEC3 scale, VEC3 color)

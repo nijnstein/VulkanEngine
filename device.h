@@ -116,7 +116,7 @@ namespace vkengine
 		void freeTexture(int32_t textureId);
 
 		void registerModel(ModelInfo& model);
-		MeshId registerMesh(MeshInfo mesh);
+		MeshId registerMesh(MeshInfo& mesh);
 		TextureInfo& registerTexture(std::string path, VkFormat format = VK_FORMAT_R8G8B8A8_SRGB, bool isColor = true, bool isCube = false);
 
 		MeshInfo& getMesh(MeshId id); 

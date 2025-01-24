@@ -31,6 +31,7 @@ namespace vkengine
     public:
         void init(CameraExtrinsic extrinsic, CameraIntrinsic intrinsic, CameraType type);
         bool update(input::InputManager inputManager, float deltaTime);
+        void update(CameraExtrinsic cam, CameraIntrinsic view);
 
         CameraExtrinsic getExtrinsic();
         CameraIntrinsic getIntrinsic();
@@ -40,7 +41,7 @@ namespace vkengine
         float m_mouseSensitivity = 1.0f;
         float m_controllerSensitivity = 1.f;
         float m_sprintSpeedFactor = 1.5f;
-        float m_scrollSpeed = 10000.0f; 
+        float m_scrollSpeed = 100.0f; 
 
         CameraType getCameraType() const { return m_cameraType; }
         MAT4 getViewMatrix() const { return view; }
@@ -49,24 +50,50 @@ namespace vkengine
         VEC3 getVelocity() const { return velocity; }
         MAT4 getRotationMatrix() const { return rotation; }
         VEC3 getPosition() const { return m_extrinsic.position; }
+        VEC3 getForward() const { return m_extrinsic.forward; }
+        VEC3 getRight() const { return m_extrinsic.right; }
         VEC3 getWorldPosOfMouse(VEC2 mousePosition);
         MAT4 getViewProjectionMatrix() const { return viewProjection; }
 
-        void setPosition(VEC3 position) {
-            m_extrinsic.position = position; 
-            updateMatrices(); 
+        void enableControl() {
+            m_controlEnabled = true;
+        };
+        void disableControl() {
+            m_controlEnabled = false;
+        };
+        bool isControlEnabled() const { return m_controlEnabled; }
+
+        // set's return true if the value changed 
+        bool setPosition(VEC3 position) {
+            if (m_extrinsic.position != position)
+            {
+                m_extrinsic.position = position;
+                updateMatrices();
+                return true; 
+            }
+            return false; 
         }
-        void setCameraType(CameraType type)
+        bool setCameraType(CameraType type)
         {
-            m_cameraType = type; 
-            updateMatrices(); 
+            if (m_cameraType != type)
+            {
+                m_cameraType = type;
+                updateMatrices();
+                return true; 
+            }
+            return false; 
         }
-        void setViewport(IVEC2 extent)
+        bool setViewport(IVEC2 extent)
         {
-            m_intrinsic.viewPortWidth = extent.x;
-            m_intrinsic.viewPortHeight = extent.y;
-            m_intrinsic.aspectRatio = extent.x / (float)extent.y;
-            updateMatrices(); 
+            if (m_intrinsic.viewPortWidth != extent.x && m_intrinsic.viewPortHeight != extent.y) 
+            {
+                m_intrinsic.viewPortWidth = extent.x;
+                m_intrinsic.viewPortHeight = extent.y;
+                m_intrinsic.aspectRatio = extent.x / (float)extent.y;
+                updateMatrices();
+                return true; 
+            }
+            return false; 
         }
 
     private:
@@ -75,6 +102,7 @@ namespace vkengine
 
         float m_pitch = 0.f;
         float m_yaw = -90.f;
+        bool m_controlEnabled = true; 
 
         CameraType m_cameraType = CameraType::ArcBall; 
         CameraExtrinsic m_extrinsic;

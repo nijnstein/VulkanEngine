@@ -151,20 +151,28 @@ const char* const NORMAL_TEXTURE = "textures/Paving_Stone_1_Normal.jpg";
 #define QUANTIZED_VERTEX QuantizedVertex
 #define VERTEX Vertex
 
-#define ct_position       (1 << 0)
-#define ct_rotation       (1 << 1)
-#define ct_scale          (1 << 2)
-#define ct_color          (1 << 3)
-#define ct_boundingBox    (1 << 4)
-#define ct_linearVelocity (1 << 5)
-#define ct_radialVelocity (1 << 6)
-#define ct_chunk          (1 << 7)
-#define ct_chunk_id       (1 << 8)
-#define ct_mesh_id        (1 << 9)
-#define ct_material_id    (1 << 10)
-#define ct_render_index   (1 << 11) // translation table from renderindex to entityid
+#define ct_none                 0
+#define ct_position             (1 << 0)
+#define ct_rotation             (1 << 1)
+#define ct_scale                (1 << 2)
+#define ct_color                (1 << 3)
+#define ct_boundingBox          (1 << 4)
+#define ct_chunk                (1 << 5)
+#define ct_chunk_id             (1 << 6)
+#define ct_mesh_id              (1 << 7)
+#define ct_material_id          (1 << 8)
+#define ct_render_index         (1 << 9) // translation table from renderindex to entityid
+#define ct_distance             (1 << 10)
+#define ct_mass                 (1 << 11)
+#define ct_collider             (1 << 12)
+#define ct_linear_velocity      (1 << 13)
+#define ct_radial_velocity      (1 << 14)
 
-#define ct_created        (1 << 31) // only set on entity if its new 
+
+#define ct_created              (1 << 32) // tags 
+#define ct_camera               (1 << 33)
+#define ct_player               (1 << 34)
+
 
 #define CHUNK_SIZE_X 16  	// 16x512x16 = 131072 / 128kb
 #define CHUNK_SIZE_Y 256    // = x24 = 6291456 vertices max
