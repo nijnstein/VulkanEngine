@@ -178,6 +178,5 @@ namespace vkengine
                 rect.height >= T(0) ? rect.top : rect.top + rect.height, std::abs(rect.width),
                 std::abs(rect.height));
         }
-
     }
 }

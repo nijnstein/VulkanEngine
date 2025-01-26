@@ -180,6 +180,7 @@
     <ClInclude Include="engine.h" />
     <ClInclude Include="mesh.h" />
     <ClInclude Include="model.h" />
+    <ClInclude Include="physics.h" />
     <ClInclude Include="player.h" />
     <ClInclude Include="render.h" />
     <ClInclude Include="shader.h" />
@@ -233,6 +234,7 @@
     <ClCompile Include="device.loadktx.cpp" />
     <ClCompile Include="math.cpp" />
     <ClCompile Include="mesh.cpp" />
+    <ClCompile Include="physics.cpp" />
     <ClCompile Include="rect.h" />
     <ClCompile Include="render.cpp" />
     <ClCompile Include="ui.cpp" />

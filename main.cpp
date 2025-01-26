@@ -22,8 +22,8 @@ class TestApp : public vkengine::VulkanEngine
 	WINDOW_ID consoleWindow;
 
 
-	int nx = VERBOSE ? 4 : 200;
-	int nz = VERBOSE ? 4 : 200;
+	int nx = VERBOSE ? 14 : 200;
+	int nz = VERBOSE ? 14 : 200;
 
 	// index = x * nz + z
 
@@ -157,6 +157,8 @@ class TestApp : public vkengine::VulkanEngine
 				VEC4(aabb.max * s + p, 1)
 			};
 		}
+
+		// after this, should update colliders on non static entities 
 	}
 
 

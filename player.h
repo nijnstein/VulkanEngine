@@ -1,7 +1,6 @@
 #pragma once
 
 
-
 class Player
 {
 private:
@@ -10,8 +9,12 @@ private:
 
 	EntityId entityId{ -1 };
 
-	FLOAT pitch{0};
-	FLOAT yaw{0};
+	EntityId blockSelectorEntityId{ -1 };
+	MaterialId blockSelectorMaterialId{ -1 };
+	MeshId blockSelectorMeshId{ -1 };
+
+	FLOAT pitch{ 0 };
+	FLOAT yaw{ 0 };
 	FLOAT fov{ 45 };
 	VEC3 forward{};
 	VEC3 up{};
@@ -22,6 +25,72 @@ private:
 	FLOAT zoomSpeed{ 100.0f };
 	const FLOAT pitchMin = -85.f;
 	const FLOAT pitchMax = 85.f;
+
+	void generatePlayerEntity()
+	{
+		auto texture = engine->initTexture("assets/textures/steve.png");
+
+		auto material = engine->initMaterial("player")
+			->setFragmentShader(engine->initFragmentShader("Compiled Shaders/textured.frag.spv").id)
+			->setVertexShader(engine->initVertexShader("Compiled Shaders/textured.vert.spv").id)
+			->setAlbedoTexture(texture.id)
+			->build();
+
+		auto obj = engine->loadObj("assets/steve.obj", engine->getMaterial(material), 1, true, true, true, true);
+		entityId = engine->fromModel(obj, false, engine->renderPrototype | ct_player);
+
+		auto aabb = obj.aabb;
+		auto pos = VEC4(world->getGroundLevel({ 0.0f, 0.0f }) + VEC3(0.5f, -0.5, 0.5f), 1);
+		auto scale = VEC4(2);
+
+		auto mesh = engine->getMesh(obj.meshes[0]);
+
+		engine->setComponentData(entityId, ct_position, pos);
+		engine->setComponentData(entityId, ct_scale, scale);
+		engine->setComponentData(entityId, ct_rotation, VEC4(0));
+		engine->setComponentData(entityId, ct_boundingBox, BBOX::fromAABB(mesh.aabb, pos, scale));
+	}
+	void generateBlockSelectorEntity()
+	{
+		if (blockSelectorMaterialId == -1)
+		{
+			blockSelectorMaterialId = engine->initMaterial("wireframe")
+				->setTopology(MaterialTopology::LineList)
+				->setLineWidth(3)
+				->setVertexShader(engine->initVertexShader(WIREFRAME_VERT_SHADER).id)
+				->setFragmentShader(engine->initFragmentShader(WIREFRAME_FRAG_SHADER).id)
+				->build();
+		}
+
+		if (blockSelectorMeshId == -1)
+		{
+			MeshInfo mesh;
+			mesh.cullDistance = 100;
+			mesh.materialId = blockSelectorMaterialId;
+			mesh.vertices.resize(12 * 3);
+			PACKED_VERTEX* vertices = mesh.vertices.data();
+
+			___GEN_WIREFRAME_CUBE(vertices, VEC4(1, 0, 0, 1), VEC3(0))
+
+				mesh.indices.resize(mesh.vertices.size());
+			for (int i = 0; i < mesh.vertices.size(); i++)
+			{
+				mesh.indices[i] = i;
+			}
+
+			mesh.removeDuplicateVertices();
+			mesh.quantize();
+
+			blockSelectorMeshId = engine->registerMesh(mesh);
+		}
+
+		blockSelectorEntityId = engine->createEntity(engine->renderPrototype);
+		engine->setComponentData(blockSelectorEntityId, ct_position, VEC4(0, 0, 0, 0));
+		engine->setComponentData(blockSelectorEntityId, ct_scale, VEC4(1));
+		engine->setComponentData(blockSelectorEntityId, ct_color, VEC4(1, 0, 0, 1));
+		engine->setComponentData(blockSelectorEntityId, ct_mesh_id, blockSelectorMeshId);
+		engine->setComponentData(blockSelectorEntityId, ct_material_id, blockSelectorMaterialId);
+	}
 
 public: 
 	
@@ -45,32 +114,60 @@ public:
 		engine = enginePtr; 
 		world = worldPtr; 
 
-		auto texture = engine->initTexture("assets/textures/steve.png"); 
-
-		auto material = engine->initMaterial("player")
-			->setFragmentShader(engine->initFragmentShader("Compiled Shaders/textured.frag.spv").id)
-			->setVertexShader(engine->initVertexShader("Compiled Shaders/textured.vert.spv").id)
-			->setAlbedoTexture(texture.id)
-			->build();
-
-		auto obj = engine->loadObj("assets/steve.obj", engine->getMaterial(material), 1, true, true, true, true);
-		entityId = engine->fromModel(obj, false, engine->renderPrototype | ct_player);
-		
-		auto aabb = obj.aabb;
-		auto pos = VEC4(world->getGroundLevel({ 0.0f, 0.0f }) + VEC3(0.5f, -0.5, 0.5f), 1);
-		auto scale = VEC4(2);
-
-		auto mesh = engine->getMesh(obj.meshes[0]); 
-	 
-		engine->setComponentData(entityId, ct_position, pos);
-		engine->setComponentData(entityId, ct_scale, scale);
-		engine->setComponentData(entityId, ct_rotation, VEC4(0)); 
-		engine->setComponentData(entityId, ct_boundingBox, BBOX::fromAABB(mesh.aabb, pos, scale));
+		// create entities 
+		generatePlayerEntity(); 
+		generateBlockSelectorEntity(); 
 
 		// takeover camera control 
 		engine->cameraController.disableControl(); 
-	}					   
 
+		// hide the selector 
+		hideBlockSelector(); 
+	}					
+
+
+	void hideBlockSelector()
+	{
+		if (blockSelectorEntityId >= 0)
+		{
+			engine->removeComponent(blockSelectorEntityId, ct_render_index); 
+		}
+	}
+	void showBlockSelector() 
+	{
+		if (blockSelectorEntityId >= 0)
+		{
+			engine->addComponent(blockSelectorEntityId, ct_render_index);
+		}
+	}
+	void positionBlockSelectorFromScreenXY(VEC2 screenXY)
+	{
+		int width, height;
+		glfwGetWindowSize(engine->window, &width, &height);
+
+		MAT4 p = engine->cameraController.getProjectionMatrix();
+		MAT4 v = engine->cameraController.getViewMatrix(); 
+
+		double x_ndc = (2.0 * screenXY.x / width) - 1;
+		double y_ndc = (2.0 * screenXY.y / height) - 1;
+		MAT4 viewProjectionInverse = INVERSE(p * v);
+		VEC4 worldSpacePosition{ x_ndc, y_ndc, 0.0f, 1.0f };
+		VEC4 world = viewProjectionInverse * worldSpacePosition;
+
+	    FLOAT x = world.x / world.w;
+		FLOAT y = world.y / world.w;
+
+		// cast a ray into the world from cam.z into +z viewspace
+		VEC3 camPos = engine->cameraController.getPosition(); 
+		VEC3 camForward = engine->cameraController.getForward(); 
+
+		engine->castRay({ VEC3(x, y, camPos.z), camForward }); 
+
+		// todo
+		//
+		// world->castRayZ(x, y, camPos.z, camForward); 
+		//
+	}
 
 	void update(FLOAT deltaTime)
 	{
@@ -150,6 +247,14 @@ public:
 			engine->cameraController.update(cam, view); 
 		}
 
+		// selecting? 
+		if (engine->inputManager.isMouseButtonDown(input::MouseButton::left))
+		{
+			positionBlockSelectorFromScreenXY(engine->inputManager.getMousePosition()); 
+			showBlockSelector(); 
+		}
+
+		// check for camera changes, trigger update of camera and player systems ifso 
 		auto cam = engine->cameraController.getExtrinsic();
 
 		static CameraExtrinsic lastCam = {};

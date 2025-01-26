@@ -2,8 +2,9 @@
 
 namespace vkengine
 {
-    namespace math
-    {
+
+   namespace math
+   {
         Sphere calculateBoundingSphere(std::span<glm::vec3> positions);
 
         glm::vec3 smoothDamp(

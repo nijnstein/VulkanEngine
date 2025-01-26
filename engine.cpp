@@ -544,7 +544,7 @@ namespace vkengine
 	{
 		setUserData(this); 
 
-		return {// id                sync          size                             sparse 			istag 
+		return {// id               sync2gpu    size                                sparse 			istag 
 			{ct_position,			true,		sizeof(VEC4),						false,			false},		// pos 
 			{ct_rotation,			true,		sizeof(QUAT),						false,			false},		// rot
 			{ct_scale,				true,		sizeof(VEC4),						false,			false},		// scale
@@ -563,7 +563,7 @@ namespace vkengine
 			{ct_mass,               false,      sizeof(FLOAT),                      false,			false},
 			{ct_linear_velocity,    false,      sizeof(VEC4),                       false,			false},
 			{ct_radial_velocity,    false,      sizeof(VEC4),                       false,			false},
-			{ct_collider,           false,      sizeof(UINT),                       false,			false},
+			{ct_collider,           false,      sizeof(Collider),                   false,			false},
 
 			// events 
 			{ct_camera,             false,      0,	         						true,			true},      // a flag/tag from which to trigger invalidations 
@@ -707,12 +707,58 @@ namespace vkengine
 	}
 
 	//#
-	//# Shadow Mapping 
+	//# Physics: ray casting for collisions
 	//#
+	RayCastResult VulkanEngine::castRay(Ray3d ray)
+	{
+		RayCastResult result{}; 
 
+		Collider* colliders = (Collider*)getComponentData(ct_collider); 
+		BBOX* bboxs = (BBOX*)getComponentData(ct_boundingBox); 
 
+		ComponentTypeId filter = ct_boundingBox | ct_collider;
 
+		for (auto& entity : entities)
+		{
+			if (entity.components & filter)
+			{
+				Collider collider = colliders[entity.index];
+				BBOX box = bboxs[entity.index]; 
 
+				switch (collider.colliderType)
+				{
+				case SPHERE_COLLIDER:
+				case MESH_COLLIDER:
+				case MESH_SPHERE_COLLIDER:
+					std::runtime_error("collider type not supported");
 
+				case BOX_COLLIDER:
+					if (math::insideBoxNotRotated(box, ray.origin))
+					{
+						result.intersection = VEC3(box.Center()); 
+						result.entityId = entity.index;
+						return result; 
+					}					 
+					if (math::intersectBoxNotRotated(box, ray, result.intersection))
+					{
+						result.entityId = entity.index; 
+						return result;
+					}
+					break;
+			
+				case MESH_BBOX_COLLIDER:
+					if ((math::insideBoxNotRotated(box, ray.origin) || math::intersectBoxNotRotated(box, ray, result.intersection))
+						/* &&
+						physics::collideMesh(box, collider.getMeshId(), origin, direction, &result.intersection, &result.triangleIndex)*/)
+					{
+						result.entityId = entity.index;
+						return result;
+					}
+					break; 
+				}
+			}
+		}
 
+		return { .entityId = -1 };
+	}
 }

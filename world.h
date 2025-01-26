@@ -86,7 +86,7 @@ public:
 		WorldChunk* chunk = getChunk(chunkXZ);
 		chunk->decompress(); 
 
-		BLOCKTYPE* pillar = &chunk->blocks[(CHUNK_SIZE_Y - 1) * CHUNK_SIZE_XZ + xz.y * CHUNK_SIZE_X + xz.x];
+		BLOCKTYPE* pillar = &chunk->blocksLod0[(CHUNK_SIZE_Y - 1) * CHUNK_SIZE_XZ + xz.y * CHUNK_SIZE_X + xz.x];
 
 		for (int i = CHUNK_SIZE_Y - 1; i >= 0; i--)
 		{
@@ -122,13 +122,12 @@ public:
 		gridMin = { MIN(gridMin[0], x), MIN(gridMin[1], z) };
 		gridMax = { MAX(gridMax[0], x), MAX(gridMax[1], z) };
 
-		WorldChunk chunk = WorldChunk(this);
+		WorldChunk wc = WorldChunk(this); 
 
-		chunk.gridXZ = gridXZ;
-		chunk.gridIndex = id;
-		chunk.worldOffset = VEC3(x * CHUNK_SIZE_X + worldOffset.x, worldOffset.y, z * CHUNK_SIZE_Z + worldOffset.x);
-		
-		chunks[id] = chunk;
+		chunks[id] = wc;
+		chunks[id].gridXZ = gridXZ;
+		chunks[id].gridIndex = id;
+		chunks[id].worldOffset = VEC3(x * CHUNK_SIZE_X + worldOffset.x, worldOffset.y, z * CHUNK_SIZE_Z + worldOffset.x);
 
 		return &chunks[id]; 
 	}
@@ -182,8 +181,8 @@ public:
 	//
 	void initChunks(VulkanEngine* engine, IVEC2 fromXZ, IVEC2 untilXZ)
 	{
-		initialWorldSize = (untilXZ[0] - fromXZ[0]) + IVEC2(1, 1);
-		worldOffset = VEC4(-CHUNK_SIZE_X * (initialWorldSize[0] / 2), CHUNK_SIZE_Y, -CHUNK_SIZE_Z * (initialWorldSize[1] / 2), 1);
+		initialWorldSize = IVEC2(untilXZ[0] - fromXZ[0]);
+		worldOffset = VEC4(-CHUNK_SIZE_X * (initialWorldSize[0] / 2.0f), CHUNK_SIZE_Y, -CHUNK_SIZE_Z * (initialWorldSize[1] / 2.0f), 1);
 
 		// allocate a max of nx * nz  
 		for (int x = fromXZ[0]; x <= untilXZ[0]; x++)
@@ -202,12 +201,27 @@ public:
 			engine->initFragmentShader(PHONG_FRAGMENT_SHADER).id
 		).materialId);
 
+
+		// connect grid pieces  
 		for (int x = gridMin[0]; x <= gridMax[0]; x++)
 		{
 			for (int z = gridMin[1]; z <= gridMax[1]; z++)
 			{
 				auto chunk = getChunk({ x, z });
-				chunk->entityId = generateChunkEntity(engine, { x, z });
+
+				if (x > 0)			chunk->leftChunk = getChunk({ x - 1, z });
+				if (x < gridMax[0]) chunk->rightChunk = getChunk({ x + 1, z });
+				if (z > 0)			chunk->frontChunk = getChunk({ x, z - 1 });
+				if (z < gridMax[1]) chunk->backChunk = getChunk({ x, z + 1 });
+			}
+		}
+
+		// generate entities and block data 
+		for (int x = gridMin[0]; x <= gridMax[0]; x++)
+		{
+			for (int z = gridMin[1]; z <= gridMax[1]; z++)
+			{
+				getChunk({ x, z })->entityId = generateChunkEntity(engine, { x, z });
 			}
 		}
 	}
@@ -289,23 +303,17 @@ public:
 		};
 		box.align(); 
 
-		auto prototype = engine->renderPrototype | ct_chunk;
+		auto prototype = engine->renderPrototype | ct_chunk | ct_collider;
 
 		Chunk chunk{};
 		chunk.chunkId = wc->entityId = engine->createEntity(prototype);
 		chunk.min = box.min;
 		chunk.max = box.max;
 		chunk.gridXZ = xz;
-
+	
 		// gen block data
 		wc->generate(&generationInfo);
-
-		// connect grid pieces for later mesh generation 
-		if (x > 0)			wc->leftChunk  = getChunk({ x - 1, z });
-		if (x < gridMax[0]) wc->rightChunk = getChunk({ x + 1, z });
-		if (z > 0)			wc->frontChunk = getChunk({ x, z - 1 });
-		if (z < gridMax[1]) wc->backChunk  = getChunk({ x, z + 1 });
-		
+				
 		MeshInfo mesh;
 		mesh.materialId = getMaterialId(); 
 		mesh.userdataPtr = wc; 
@@ -313,6 +321,9 @@ public:
 		mesh.aabb = AABB::fromBoxMinMax(VEC3(box.min), VEC3(box.max));
 		mesh.meshId = engine->registerMesh(mesh); 
 	
+		// collider should first test box, then the mesh as the mesh will have holes in it (especially between ground and clouds)
+		Collider collider = Collider::fromMesh(mesh.meshId);
+
 		engine->registerMesh(mesh); 
 		engine->setComponentData(wc->entityId, ct_position,		wc->worldOffset);
 		engine->setComponentData(wc->entityId, ct_rotation,		QUAT(0, 0, 0, 0));
@@ -321,6 +332,7 @@ public:
 		engine->setComponentData(wc->entityId, ct_chunk_id,		chunk.chunkId);
 		engine->setComponentData(wc->entityId, ct_mesh_id,      mesh.meshId); 
 		engine->setComponentData(wc->entityId, ct_material_id,	mesh.materialId); 
+		engine->setComponentData(wc->entityId, ct_collider,     collider); 
 		engine->addComponentData(ct_chunk, &chunk, 1);
 		engine->setStatic(wc->entityId); 
 
@@ -350,12 +362,10 @@ public:
 	MeshId generateChunkMesh(VulkanEngine* engine, IVEC2 xz)
 	{
 		auto chunk = getChunk(xz);
-
 		MeshId meshId = *(MeshId*)engine->getComponentData(chunk->entityId, ct_mesh_id); 
-	
 		requestMesh(engine, &engine->meshes[meshId], chunk);
-
 		return meshId; 
 	}
 
+	  
 };

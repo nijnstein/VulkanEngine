@@ -17,7 +17,7 @@ class World; // forward
 
 class WorldChunk
 {
-private:	  	
+private:
 	enum AllocationType { none, uncompressed, rle };
 	enum ChunkState { initial, modified };
 
@@ -25,63 +25,51 @@ private:
 	ChunkState chunkState{ initial };
 	SIZE currentAllocationSize{ 0 };
 
+	BYTE* blockMemory = nullptr;
+
 	void allocate()
 	{
-		if (blocks) std::runtime_error("chunk already allocated");
-		
-		SIZE size = allocationSize(); 
-		blocks = (uint8_t*)malloc(size);
-		blockStorage = { uncompressed }; 
-		currentAllocationSize = size;
+		if (blockMemory) std::runtime_error("chunk already allocated");
+
+		blockMemory = (BLOCKTYPE*)malloc(blockAllocSize);
+		blockStorage = { uncompressed };
+		currentAllocationSize = blockAllocSize;
+
+		blocksLod0 = blockMemory;
+		blocksLod1 = &blockMemory[lodAllocOffsets[1]];
+		blocksLod2 = &blockMemory[lodAllocOffsets[2]];
+		blocksLod3 = &blockMemory[lodAllocOffsets[3]];
 	}
 	void deallocate()
 	{
-		if (blocks)
+		if (blockMemory)
 		{
-			free(blocks);
+			free(blockMemory);
 			blockStorage = { none };
-			blocks = nullptr;
-			currentAllocationSize = 0; 
+			blockMemory = nullptr;
+			currentAllocationSize = 0;
+			blocksLod0 = nullptr;
+			blocksLod1 = nullptr;
+			blocksLod2 = nullptr;
+			blocksLod3 = nullptr;
 		}
 	}
-	SIZE allocationSize(int lodlevels = 0)
-	{
-		SIZE size = CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z; 
-		for (int i = 1; i <= lodlevels; i++)
-		{
-			size += size >> 3;
-		}
-		return size; 
-	}
-	SIZE allocationIndex(int lodlevel = 0)
-	{
-		SIZE size = 0; 
-		if (lodlevel > 0)
-		{
-			size += CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z;
-			for (int i = 1; i < lodlevel; i++)
-			{
-				size += size >> 3;
-			}
-		}
-		return size; 
-	}
-	
+
 	void decodeCompressedBlocks(BYTE* destination)
 	{
 		assert(blockStorage == AllocationType::rle);
 
-		SIZE size = allocationSize(0);
+		SIZE size = blockAllocSize;
 		SIZE i = 0;
 		SIZE j = 0;
 
 		while (i < size)
 		{
-			BYTE n = blocks[j++];
+			BYTE n = blockMemory[j++];
 
 			if (n < 251)
 			{
-				BYTE b = blocks[j++];
+				BYTE b = blockMemory[j++];
 
 				for (SIZE k = 0; k < n; k++)
 				{
@@ -89,35 +77,35 @@ private:
 				}
 			}
 			else
-			if(n == 251)
-			{  
-				BYTE n2 = blocks[j++];
-				BYTE b = blocks[j++];
-
-				for (SIZE k = 0; k < 250 + n2; k++)
+				if (n == 251)
 				{
-					destination[i++] = b;
-				}
-			}
-			else
-			if (n == 254)
-			{
-				UINT b1 = (UINT)blocks[j++]; 
-				UINT b2 = (UINT)blocks[j++] << 8;
-				UINT b3 = (UINT)blocks[j++] << 16;
-				UINT b4 = (UINT)blocks[j++] << 24;
-				BYTE b = blocks[j++];
+					BYTE n2 = blockMemory[j++];
+					BYTE b = blockMemory[j++];
 
-				SIZE l = b1 | b2 | b3 | b4;
-				for (SIZE k = 0; k < l; k++)
-				{
-					destination[i++] = b;
+					for (SIZE k = 0; k < 250 + n2; k++)
+					{
+						destination[i++] = b;
+					}
 				}
-			}
-			else
-			{
-				std::runtime_error("decodeing error");
-			}
+				else
+					if (n == 254)
+					{
+						UINT b1 = (UINT)blockMemory[j++];
+						UINT b2 = (UINT)blockMemory[j++] << 8;
+						UINT b3 = (UINT)blockMemory[j++] << 16;
+						UINT b4 = (UINT)blockMemory[j++] << 24;
+						BYTE b = blockMemory[j++];
+
+						SIZE l = b1 | b2 | b3 | b4;
+						for (SIZE k = 0; k < l; k++)
+						{
+							destination[i++] = b;
+						}
+					}
+					else
+					{
+						std::runtime_error("decodeing error");
+					}
 		}
 	}
 	std::vector<BYTE> encodeUncompressedBlocks()
@@ -128,12 +116,12 @@ private:
 		std::vector<BYTE> data{};
 		data.reserve(1024 * 4);
 
-		BYTE current = blocks[0];
+		BYTE current = blockMemory[0];
 		SIZE n = 1;
 
 		for (int i = 1; i < currentAllocationSize; i++)
 		{
-			if (blocks[i] == current)
+			if (blockMemory[i] == current)
 			{
 				n++;
 			}
@@ -145,21 +133,21 @@ private:
 					data.push_back((BYTE)n);
 				}
 				else
-				if (n < 500)
-				{
-					data.push_back((BYTE)251);
-					data.push_back((BYTE)(n - 250));
-				}
-				else
-				{
-					data.push_back((BYTE)254);
-					data.push_back((BYTE)(n & 0x000000FF));
-					data.push_back((BYTE)((n & 0x0000FF00) >> 8));
-					data.push_back((BYTE)((n & 0x00FF0000) >> 16));
-					data.push_back((BYTE)((n & 0xFF000000) >> 24));
-				}
-				data.push_back(current); 
-				current = blocks[i];
+					if (n < 500)
+					{
+						data.push_back((BYTE)251);
+						data.push_back((BYTE)(n - 250));
+					}
+					else
+					{
+						data.push_back((BYTE)254);
+						data.push_back((BYTE)(n & 0x000000FF));
+						data.push_back((BYTE)((n & 0x0000FF00) >> 8));
+						data.push_back((BYTE)((n & 0x00FF0000) >> 16));
+						data.push_back((BYTE)((n & 0xFF000000) >> 24));
+					}
+				data.push_back(current);
+				current = blockMemory[i];
 				n = 1;
 			}
 		}
@@ -190,21 +178,24 @@ private:
 	}
 
 public:
-	World* world; 
+	World* world = nullptr;
 
 	EntityId entityId{ -1 };
 	EntityId borderEntityId{ -1 };
 
-	BYTE* blocks;	
+	BLOCKTYPE* blocksLod0 = nullptr;
+	BLOCKTYPE* blocksLod1 = nullptr;
+	BLOCKTYPE* blocksLod2 = nullptr;
+	BLOCKTYPE* blocksLod3 = nullptr;
 
-	IVEC2 gridXZ; 
-	UINT gridIndex;
-	VEC3 worldOffset; 
+	IVEC2 gridXZ{};
+	UINT gridIndex{};
+	VEC3 worldOffset{};
 
-	WorldChunk* leftChunk;	 // -x
-	WorldChunk* rightChunk;	 // +x 
-	WorldChunk* frontChunk;	 // -z
-	WorldChunk* backChunk;	 // +z 
+	WorldChunk* leftChunk = nullptr;	 // -x
+	WorldChunk* rightChunk = nullptr;	 // +x 
+	WorldChunk* frontChunk = nullptr;	 // -z
+	WorldChunk* backChunk = nullptr;	 // +z 
 
 	WorldChunk() 
 	{
@@ -219,7 +210,7 @@ public:
 	}
 
 	~WorldChunk() { 
-		if (blocks != nullptr) deallocate(); 
+		if (blockMemory != nullptr) deallocate();
 	}
 
 	bool isModified() {
@@ -233,16 +224,16 @@ public:
 		{
 			//START_TIMER
 
-			assert(blocks != nullptr); 
+			assert(blockMemory != nullptr); 
 
 			SIZE oldSize = currentAllocationSize;
 			auto data = encodeUncompressedBlocks(); 
-			delete[] blocks; 
+			delete[] blockMemory; 
 
-			blocks = new BYTE[data.size()];
+			blockMemory = new BLOCKTYPE[data.size()];
 			currentAllocationSize = data.size(); 
 
-			memcpy(blocks, data.data(), data.size());
+			memcpy(blockMemory, data.data(), data.size());
 
 			blockStorage = { rle };
 
@@ -253,14 +244,19 @@ public:
 	{
 		if (blockStorage == AllocationType::rle)
 		{
-			assert(blocks != nullptr); 
+			assert(blocksLod0 != nullptr); 
 
-			SIZE size = allocationSize(0);
+			SIZE size = blockAllocSize;
 			BYTE* data = new BYTE[size];
 			decodeCompressedBlocks(data);
 
-			delete[] blocks;
-			blocks = data;
+			delete[] blockMemory;
+			blockMemory = data;
+
+			blocksLod0 = blockMemory;
+			blocksLod1 = &blockMemory[lodAllocOffsets[1]];
+			blocksLod2 = &blockMemory[lodAllocOffsets[2]];
+			blocksLod3 = &blockMemory[lodAllocOffsets[3]];
 
 			blockStorage = { uncompressed };
 			currentAllocationSize = size;
@@ -271,20 +267,20 @@ public:
 	}
 	void forget()
 	{
-		if (blocks != nullptr) deallocate(); 
+		if (blockMemory != nullptr) deallocate(); 
 	}
 
 	//
 	// generate initial blocks 
 	//
-	BYTE* generate(WorldChunkGenerationInfo* genInfo)
+	void generate(WorldChunkGenerationInfo* genInfo)
 	{
 		decompress(); 
 
 		// just return if present 
 		if (blockStorage == AllocationType::uncompressed)
 		{
-			return blocks; 
+			return; 
 		}
 		
 		// alloctype == none, generate it 
@@ -295,151 +291,189 @@ public:
 		bool clouds[CHUNK_SIZE_XZ];
 
 		// generate noise base 
-		for (int x = 0; x < CHUNK_SIZE_X; x++)
-		{
-			for (int z = 0; z < CHUNK_SIZE_Z; z++)
+		for (int z = 0; z < CHUNK_SIZE_Z; z++)
+			for (int x = 0; x < CHUNK_SIZE_X; x++)
 			{
-				int index = x * CHUNK_SIZE_Z + z;
+				int index = z * CHUNK_SIZE_X + x;
 
-				FLOAT n = genInfo->groundNoise.GetCubicFractal(
-				 	0.1f * (worldOffset.x + (FLOAT)(x + (gridXZ[0] * CHUNK_SIZE_X))),
-					0.1f * (worldOffset.z + (FLOAT)(z + (gridXZ[1] * CHUNK_SIZE_Z))));
+				FLOAT n = 0.96f * genInfo->groundNoise.GetCubicFractal(
+					0.2f * (worldOffset.x + (FLOAT)x),
+					0.2f * (worldOffset.z + (FLOAT)z)) 
+					+
+					0.03f * genInfo->groundNoise.GetCellular(
+					2.0f * (worldOffset.x + (FLOAT)x),
+					2.0f * (worldOffset.z + (FLOAT)z))					
+					+
+					0.01f * genInfo->groundNoise.GetCellular(
+					4.0f * (worldOffset.x + (FLOAT)x),
+					4.0f * (worldOffset.z + (FLOAT)z));
 
                 clouds[index] = genInfo->cloudNoise.GetCellular
                 (
-                	2.0f * worldOffset.x + (FLOAT)(x + (gridXZ[0] * CHUNK_SIZE_X)),
-                	2.0f * worldOffset.z + (FLOAT)(z + (gridXZ[1] * CHUNK_SIZE_Z))
-                ) > genInfo->cloudChance;
-                
-                groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel + ((n + 0.2f) * genInfo->heightScale)));
-			}
-		}
+                	2.0f * (worldOffset.x + (FLOAT)x),
+                	2.0f * (worldOffset.z + (FLOAT)z)) > genInfo->cloudChance;
 
+                groundLevel[index] = MAX(100.0f, MIN((FLOAT)CHUNK_SIZE_Y, genInfo->groundLevel + ((n + 0.1f) * genInfo->heightScale)));
+			}
+
+		// generate block data
 		for (int y = 0; y < CHUNK_SIZE_Y; y++)
-		{
-			for (int x = 0; x < CHUNK_SIZE_X; x++)
-			{
-				for (int z = 0; z < CHUNK_SIZE_Z; z++)
+			for (int z = 0; z < CHUNK_SIZE_Z; z++)
+				for (int x = 0; x < CHUNK_SIZE_X; x++)
 				{
 					int idx = y * CHUNK_SIZE_XZ + z * CHUNK_SIZE_X + x;
-					int idxPlane = x * CHUNK_SIZE_Z + z;
+					int idxPlane = x + CHUNK_SIZE_X * z;
 					int ground = groundLevel[idxPlane];
 
 					if (y < ground)
 					{
-						blocks[idx] = BT_STONE;
+						blocksLod0[idx] = BT_STONE;
 					}
 					else
 						if (y == ground)
 						{
-							if (ground < 150) blocks[idx] = BT_GRASS;
+							if (ground < 150) blocksLod0[idx] = BT_GRASS;
 							else
-								if (ground < 180) blocks[idx] = BT_DIRT;
-								else blocks[idx] = BT_SNOW;
+								if (ground < 180) blocksLod0[idx] = BT_DIRT;
+								else blocksLod0[idx] = BT_SNOW;
 						}
 						else
 						{
 							if (y > ground && y < genInfo->cloudLevel)
 							{
-								blocks[idx] = BT_AIR;
+								blocksLod0[idx] = BT_AIR;
 							}
 							else
 								if (y > genInfo->cloudLevel && y < genInfo->cloudLevel + 3)
 								{
-									blocks[idx] = clouds[idxPlane] ? BT_CLOUD : BT_AIR;
+									blocksLod0[idx] = clouds[idxPlane] ? BT_CLOUD : BT_AIR;
 								}
 								else
 								{
-									blocks[idx] = BT_AIR;
+									blocksLod0[idx] = BT_AIR;
 								}
 						}
 				}
-			}
-		}
+
+		// generate lod block data 
+		generateBlockLOD({ 16, 256, 16 }, { 8, 128, 8 }, 2, blocksLod0, blocksLod1);
+		generateBlockLOD({  8, 128,  8 }, { 4,  64, 4 }, 2, blocksLod1, blocksLod2);
+		generateBlockLOD({  4,  64,  4 }, { 2,  32, 2 }, 2, blocksLod2, blocksLod3);
 
 		chunkState = { initial }; 
 		DEBUG("generated chunk %d at xy: %d, %d\n", entityId, gridXZ.x, gridXZ.y)
 	}
 
-	// get/set blocks 
-	inline BYTE get(IVEC3 pos, UINT step) const
+	void generateBlockLOD(IVEC3 inputSize, IVEC3 outputSize, UINT step, BLOCKTYPE* blockdata, BLOCKTYPE* output)
 	{
-		return get(pos.x, pos.y, pos.z, step);
-	}
-	inline BYTE get(int x, int y, int z, UINT step) const
-	{
-		return get(blocks, x, y, z, step);
-	}
-	inline BYTE get(uint8_t* data, int x, int y, int z, UINT step) const
-	{
-		if (x < 0 || x >= CHUNK_SIZE_X) return BT_STONE;
-		if (y < 0) return BT_STONE;
-		if (y >= CHUNK_SIZE_Y) return BT_AIR;
-		if (z < 0 || z >= CHUNK_SIZE_Z) return BT_STONE;
+		UINT inputChunkSizeXZ = inputSize.x * inputSize.z;
+		UINT outputChunkSizeXZ = outputSize.x * outputSize.z;
 
-		if (step == 1)
+		//int i = 0;
+		//int j = 0; 
+
+		for (int y = 0, iy = 0; y < inputSize.y; y += step, iy++)
 		{
-			return data[y * CHUNK_SIZE_XZ + z * CHUNK_SIZE_X + x];
+			for (int z = 0, iz = 0; z < inputSize.z; z += step, iz++)
+			{
+				for (int x = 0, ix = 0; x < inputSize.x; x += step, ix++)
+				{
+					// 	i and j should just be incremented,... TODO 
+					int i = x + z * inputSize.x + y * inputChunkSizeXZ;
+					int j = ix + iz * outputSize.x + iy * outputChunkSizeXZ;
+
+					output[j] = blockdata[i];
+
+					//j++;
+					//i += step;
+				}
+			}
 		}
-		else
+	}
+
+	inline BYTE* lodBlocksFromStep(UINT step)
+	{
+		switch (step)
 		{
-			// select most prevalent blocktype from the section mapped with stepsize 
-			std::map< BLOCKTYPE, UINT> v{};
-			BLOCKTYPE m = BT_AIR;
-			UINT maxn = 0;
+		case 1: return blocksLod0;
+		case 2: return blocksLod1;
+		case 4: return blocksLod2;
+		case 8: return blocksLod3;
+		}
+		assert(false);
+	}
 
-			for (int ys = 0; ys < step; ys++)
-				for (int zs = 0; zs < step; zs++)
-					for (int xs = 0; xs < step; xs++)
+	inline SIZE lodLevelFromStep(UINT step)
+	{
+		switch (step)
+		{
+		case 1: return 0; 
+		case 2: return 1; 
+		case 4: return 2; 
+		case 8: return 3;
+		}
+		assert(false);
+	}
+
+	inline IVEC3 chunkSizeFromStep(UINT step)
+	{
+		return lodChunkSizes[lodLevelFromStep(step)];
+	}
+
+	// get/set blocks 
+	inline BYTE get(IVEC3 pos, UINT step, bool crossesChunk = false)
+	{
+		return get(pos.x, pos.y, pos.z, step, crossesChunk);
+	}
+	inline BYTE get(int x, int y, int z, UINT step, bool crossesChunk = false)
+	{
+		return get(lodBlocksFromStep(step), x, y, z, step, crossesChunk);
+	}
+	inline BYTE get(uint8_t* data, int x, int y, int z, UINT step, bool crossesChunk = false)
+	{
+		IVEC3 chunkSize = chunkSizeFromStep(step); 
+
+		if (x < 0 || x >= chunkSize.x) return BT_STONE;
+		if (y < 0) return BT_STONE;
+		if (y >= chunkSize.y) return BT_AIR;
+		if (z < 0 || z >= chunkSize.z) return BT_STONE;
+
+		int i = y * (chunkSize.x * chunkSize.z) + z * chunkSize.x + x; 
+		BLOCKTYPE bt = data[i];
+		
+		// todo:  this should be directional
+		if (crossesChunk & (BYTE)(bt != BT_AIR) & (BYTE)(step > 1))
+		{
+			// check for any piece of air as on lodlevel borders we would otherwise get empty faces 
+			bool anyAir = false;
+			SIZE cxz = chunkSize.x * chunkSize.z; 
+			
+			for (int yy = 0; yy < step && yy + y < chunkSize.y && !anyAir; yy++)
+			{
+				int cxyz = yy * cxz; 
+				for (int zz = 0; zz < step && zz + z < chunkSize.z && !anyAir; zz++)
+				{
+					int ii = i + cxyz + zz * cxz; 
+					for (int xx = 0; xx < step && xx + x < chunkSize.x && !anyAir; xx++, ii++)
 					{
-						int index = (y + ys) * CHUNK_SIZE_XZ + (z + zs) * CHUNK_SIZE_X + (x + xs); 
-						BLOCKTYPE bt = data[index];
-
-						if (bt != BT_AIR)
+						if (data[ii] == BT_AIR)
 						{
-							// must have air next to it 
-							if (   left   (x + xs, y + ys, z + zs, 1) != BT_AIR
-								|| right  (x + xs, y + ys, z + zs, 1) != BT_AIR
-								|| top    (x + xs, y + ys, z + zs, 1) != BT_AIR
-								|| bottom (x + xs, y + ys, z + zs, 1) != BT_AIR
-								|| front  (x + xs, y + ys, z + zs, 1) != BT_AIR
-								|| back   (x + xs, y + ys, z + zs, 1) != BT_AIR
-								)
-							{
-								if (v.contains(bt))
-								{
-									UINT n = v[bt] + 1;
-
-									if (n > maxn)
-									{
-										m = bt;
-										maxn = n;
-									}
-
-									v[bt] = n;
-								}
-								else
-								{
-									v[bt] = 1;
-									if (maxn == 0)
-									{
-										m = bt;
-										maxn = 1;
-									}
-								}
-							}
+							anyAir = true;
 						}
 					}
-		    
-			return m; 
-		}			
+				}
+			}
+			if (anyAir) bt = BT_AIR;
+		}
+
+		return bt; 
 	}
 	inline void set(const IVEC3 pos, const BLOCKTYPE block) 
 	{
 		if (blockStorage == AllocationType::rle) decompress(); 
 		assert(blockStorage == AllocationType::uncompressed); 
 
-		blocks[
+		blocksLod0[
 			pos.y * CHUNK_SIZE_XZ
 				+
 				pos.z * CHUNK_SIZE_X
@@ -450,82 +484,82 @@ public:
 	}
 	
 	// get a block in a direction from some position crossing over chunk boundary if needed
-	BYTE left  (int x, int y, int z, UINT step) const 
+	BLOCKTYPE left  (int x, int y, int z, UINT step)   
 	{
-		bool crossBorder = x <= (-1 + step); 
+		BLOCKTYPE bt; 
+
+		bool crossBorder = x <= 0;
 		if (leftChunk && crossBorder)
 		{
 			leftChunk->decompress(); 
-			return get(leftChunk->blocks, x + CHUNK_SIZE_X - step, y, z, step);
+			IVEC3 chunkSize = chunkSizeFromStep(step);
+			bt = get(leftChunk->lodBlocksFromStep(step), x + chunkSize.x - 1, y, z, step, true);
 		}
 		else
 		if (crossBorder)
 		{
-			return BT_STONE;
+			bt = BT_STONE;
 		}
 		else
 		{
-			return get(x - step, y, z, step);
+			bt = get(x - 1, y, z, step, false);
 		}
+		return bt; 
 	}
-	BYTE right (int x, int y, int z, UINT step) const 
+	BYTE right (int x, int y, int z, UINT step)  
 	{
+		IVEC3 chunkSize = chunkSizeFromStep(step);
 		if (rightChunk)
 		{
 			rightChunk->decompress();
-			if (x >= CHUNK_SIZE_X - step) return get(rightChunk->blocks, x - CHUNK_SIZE_X + step, y, z, step);
+			if (x >= chunkSize.x - 1) return get(rightChunk->lodBlocksFromStep(step), x - chunkSize.x + 1, y, z, step, true);
 		}
 		else
-			if (x >= CHUNK_SIZE_X - step) return BT_STONE; 
+			if (x >= chunkSize.x - 1) return BT_STONE;
 
-		return get(x + step, y, z, step);
+		return get(x + 1, y, z, step, false);
 	}
-	BYTE top   (int x, int y, int z, UINT step) const 
+	BYTE top   (int x, int y, int z, UINT step)  
 	{
-		return get(x, y - step, z, step);
+		return get(x, y - 1, z, step);
 	}
-	BYTE bottom(int x, int y, int z, UINT step) const 
+	BYTE bottom(int x, int y, int z, UINT step)  
 	{
-		return get(x, y + step, z, step);
+		return get(x, y + 1, z, step);
 	}
-	BYTE front (int x, int y, int z, UINT step) const 
-	{
+	BYTE front (int x, int y, int z, UINT step)  
+	{					
 		if (frontChunk)
 		{		
-			if (z <= (-1 + step))
+			if (z <= 0)
 			{
+				IVEC3 chunkSize = chunkSizeFromStep(step);
 				frontChunk->decompress(); 
-				return get(frontChunk->blocks, x, y, z + CHUNK_SIZE_X - step, step);
+				return get(frontChunk->lodBlocksFromStep(step), x, y, z + chunkSize.z - 1, step, true);
 			}
 		}
 		else
-			if (z <= (-1 + step)) return BT_STONE;
+			if (z <= 0) return BT_STONE;
 
-		return get(x, y, z - step, step);
+		return get(x, y, z - 1, step, false);
 	}
-	BYTE back  (int x, int y, int z, UINT step) const 
+	BYTE back  (int x, int y, int z, UINT step) 
 	{
+		IVEC3 chunkSize = chunkSizeFromStep(step);
 		if (backChunk)
 		{
-			if (z >= CHUNK_SIZE_Z - step)  
+			if (z >= chunkSize.z - 1)
 			{ 
 				backChunk->decompress();
-				return get(backChunk->blocks, x, y, z - CHUNK_SIZE_Z + step, step);
+				return get(backChunk->lodBlocksFromStep(step), x, y, z - chunkSize.z + 1, step, true);
 			}
 		}
 		else 
-			if (z >= CHUNK_SIZE_Z - step) return BT_STONE; 
+			if (z >= chunkSize.z - 1) return BT_STONE;
 
-		return get(x, y, z + step, step);
+		return get(x, y, z + 1, step, false);
 	}
 
-	// face bitmask for mesh generation 
-	BYTE b_top = 0b00000001;
-	BYTE b_left = 0b00000010;
-	BYTE b_right = 0b00000100;
-	BYTE b_bottom = 0b00001000;
-	BYTE b_front = 0b00010000;
-	BYTE b_back = 0b00100000;
 
 
 	//
@@ -542,27 +576,26 @@ public:
 	//                              
 
 
-	void generateMeshSegmentXZ(PACKED_VERTEX** _vertices, BYTE* faces, BLOCKTYPE* BLOCKS, int x, int y, int z, BYTE face, int i, UINT& c, UINT step)
+	void generateMeshSegmentXZ(PACKED_VERTEX** _vertices, BYTE* faces, BLOCKTYPE* blockdata, int x, int y, int z, BYTE face, UINT& c, IVEC3 chunkSize, UINT step)
 	{
 		PACKED_VERTEX* vertices = *_vertices;
 		BYTE f = face == b_top ? BOTTOM_FACE : TOP_FACE;
 
 		// reduce triangle count by merging equal blocks along the axis
-		int j = step;
+		int j = 1;
 		int joinx = x;
 		int joinz = z;
 		
-		BLOCKTYPE bt = blocks[i];
+		BLOCKTYPE bt = *blockdata;
 
 		// check to join along the x-axis 
-		while (j + x < CHUNK_SIZE_X && bt == blocks[i + j])
+		while (j + x < chunkSize.x && bt == blockdata[j])
 		{
-			if (faces[i + j] & face)
+			if (faces[j] & face)
 			{
-				faces[i + j] &= ~face;
+				faces[j] &= ~face;
 				joinx = x + j;
-
-				j += step;
+				j += 1;
 			}
 			else
 			{
@@ -570,13 +603,14 @@ public:
 			}
 		}
 
-		int k = step;
-		while (k + z < CHUNK_SIZE_Z && bt == blocks[i + k * CHUNK_SIZE_X])
+		int k = 1;
+		while (k + z < chunkSize.z && bt == blockdata[k * chunkSize.x])
 		{
 			bool ok = true;
-			for (int jj = step; jj <= joinx - x && ok; jj += step) // scan x axis at z 
+			for (int jj = 1; jj <= joinx - x && ok; jj += 1) // scan x axis at z 
 			{
-				if (bt != blocks[i + jj + k * CHUNK_SIZE_X] || !(faces[i + jj + k * CHUNK_SIZE_X] & face))
+				int idx = jj + k * chunkSize.x; 
+				if (bt != blockdata[idx] || !(faces[idx] & face))
 				{
 					ok = false;
 				}
@@ -584,7 +618,7 @@ public:
 			if (ok)
 			{
 				joinz = z + k;
-				k += step;
+				k += 1;
 			}
 			else
 			{
@@ -596,56 +630,55 @@ public:
 		if (joinx > x || joinz > z)
 		{
 			// join a square over xz / joinxz, remove the face from the faces array so it wont be redrawn on next z pass
-			for (int jj = step; jj <= (joinz - z + step - 1); jj += step)
+			for (int jj = 1; jj <= (joinz - z); jj += 1)
 			{
-				for (int xi = 0; xi <= joinx - x + step - 1; xi += step)
+				for (int xi = 0; xi <= joinx - x; xi += 1)
 				{
-					faces[i + CHUNK_SIZE_X * jj + xi] &= ~face;
+					faces[chunkSize.x * jj + xi] &= ~face;
 				}
 			}
 		}
 
-		//
-		// sometimes bt == AIR 
-		// in that case faces has a bug.. 
-		//
-		___GEN_FACE_JOIN(f, vertices, bt, VEC3(x, -y, z), VEC3(joinx + (step - 1), 0, joinz + (step - 1)))
+		___GEN_FACE_JOIN(f, vertices, bt, VEC3(x, -y, z), VEC3(joinx, 0, joinz))
 
 		c += 6;
-		faces[i] &= ~face;
+		*faces &= ~face;
 		*_vertices = vertices;
 	}
-	void generateMeshSegmentZY(PACKED_VERTEX** _vertices, BYTE* faces, BLOCKTYPE* BLOCKS, int x, int y, int z, BYTE face, int i, UINT& c, UINT step)
+	void generateMeshSegmentZY(PACKED_VERTEX** _vertices, BYTE* faces, BLOCKTYPE* blockdata, int x, int y, int z, BYTE face, UINT& c, IVEC3 chunkSize, UINT step)
 	{
 		PACKED_VERTEX* vertices = *_vertices;
 		BYTE f = face == b_left ? LEFT_FACE : RIGHT_FACE;
 
 		// reduce triangle count by merging equal blocks along the axis
-		int j = step;
+		int j = 1;
 		int joinz = z;
 		int joiny = y;
-		BLOCKTYPE bt = blocks[i];
+		BLOCKTYPE bt = *blockdata;
 
 		// check to join along the z-axis 
 		while (
-			j + z < CHUNK_SIZE_Z
+			j + z < chunkSize.z
 			&&
-			bt == blocks[i + j * CHUNK_SIZE_X]
+			bt == blockdata[j * chunkSize.x]
 			&&
-			faces[i + j * CHUNK_SIZE_X] & face)
+			faces[j * chunkSize.x] & face)
 		{
-			faces[i + j * CHUNK_SIZE_X] &= ~face;
+			faces[j * chunkSize.x] &= ~face;
 			joinz = z + j;
-			j += step;
+			j += 1;
 		}
 
-		int k = step;
-		while (k + y < CHUNK_SIZE_Y && bt == blocks[i + k * CHUNK_SIZE_XZ])
+		int k = 1;
+		int chunkSizeXZ = chunkSize.x * chunkSize.z; 
+
+		while (k + y < chunkSize.y && bt == blockdata[k * chunkSizeXZ])
 		{
 			bool ok = true;
-			for (int jj = step; jj <= joinz - z && ok; jj += step) // scan z axis at y 
+			for (int jj = 1; jj <= joinz - z && ok; jj += 1) // scan z axis at y 
 			{
-				if (bt != blocks[i + jj * CHUNK_SIZE_X + k * CHUNK_SIZE_XZ] || !(faces[i + jj * CHUNK_SIZE_X + k * CHUNK_SIZE_XZ] & face))
+				int idx = jj * chunkSize.x + k * chunkSizeXZ; 
+				if (bt != blockdata[idx] || !(faces[idx] & face))
 				{
 					ok = false;
 				}
@@ -653,7 +686,7 @@ public:
 			if (ok)
 			{
 				joiny = y + k;
-				k += step;
+				k += 1;
 			}
 			else
 			{
@@ -665,54 +698,50 @@ public:
 		if (joinz > z || joiny > y)
 		{
 			// clearout faces avoiding redraw on next y 
-			for (int yy = step; yy <= joiny - y; yy += step)
+			for (int yy = 1; yy <= joiny - y; yy += 1)
 			{
-				for (int zz = 0; zz <= joinz - z; zz += step)
+				for (int zz = 0; zz <= joinz - z; zz += 1)
 				{
-					faces[i + zz * CHUNK_SIZE_X + yy * CHUNK_SIZE_XZ] &= ~face;
+					faces[zz * chunkSize.x + yy * chunkSizeXZ] &= ~face;
 				}
 			}
 		}
 
-		if (joiny - y > 10)
-		{
-			DEBUG("..."); 
-			joiny = y + 1; 
-		}
-
-		___GEN_FACE_JOIN(f, vertices, bt, VEC3(x, -y, z), VEC3(0, joiny + (step - 1), joinz + (step - 1)))
+		___GEN_FACE_JOIN(f, vertices, bt, VEC3(x, -y, z), VEC3(0, joiny, joinz))
 
 		c += 6;
-		faces[i] &= ~face;
+		*faces &= ~face;
 		*_vertices = vertices;
 	}
-	void generateMeshSegmentXY(PACKED_VERTEX** _vertices, BYTE* faces, BLOCKTYPE* BLOCKS, int x, int y, int z, BYTE face, int i, UINT& c, UINT step)
+	void generateMeshSegmentXY(PACKED_VERTEX** _vertices, BYTE* faces, BLOCKTYPE* blockdata, int x, int y, int z, BYTE face, UINT& c, IVEC3 chunkSize, UINT step)
 	{
 		PACKED_VERTEX* vertices = *_vertices;
 		BYTE f = face == b_front ? FRONT_FACE : BACK_FACE;
 
 		// reduce triangle count by merging equal blocks along the axis
-		int j = step;
+		int j = 1;
 		int joinx = x;
-		int k = step;
+		int k = 1;
 		int joiny = y;
+		int chunkSizeXZ = chunkSize.x * chunkSize.z;
 
-		BLOCKTYPE bt = blocks[i];
+		BLOCKTYPE bt = *blockdata;
 
 		// check to join along the x-axis 
-		while (j + x < CHUNK_SIZE_X && bt == blocks[i + j] && (faces[i + j] & face))
+		while (j + x < chunkSize.x && bt == blockdata[j] && (faces[j] & face))
 		{
-			faces[i + j] &= ~face;
+			faces[j] &= ~face;
 			joinx = x + j;
-			j += step;
+			j += 1;
 		}
 
-		while (k + y < CHUNK_SIZE_Y && bt == blocks[i + k * CHUNK_SIZE_XZ])
+		while (k + y < chunkSize.y && bt == blockdata[k * chunkSizeXZ])
 		{
 			bool ok = true;
-			for (int jj = step; jj <= joinx - x && ok; jj += step) // scan x axis at y 
+			for (int jj = 1; jj <= joinx - x && ok; jj += 1) // scan x axis at y 
 			{
-				if (bt != blocks[i + jj + k * CHUNK_SIZE_XZ] || !(faces[i + jj + k * CHUNK_SIZE_XZ] & face))
+				int idx = jj + k * chunkSizeXZ;
+				if (bt != blockdata[idx] || !(faces[idx] & face))
 				{
 					ok = false;
 				}
@@ -720,7 +749,7 @@ public:
 			if (ok)
 			{
 				joiny = y + k;
-				k += step;
+				k += 1;
 			}
 			else
 			{
@@ -732,20 +761,99 @@ public:
 		if (joinx > x || joiny > y)
 		{
 			// clearout faces avoiding redraw on next y 
-			for (int yy = step; yy <= joiny - y; yy += step)
+			for (int yy = 1; yy <= joiny - y; yy += 1)
 			{
-				for (int xx = 0; xx <= joinx - x; xx += step)
+				for (int xx = 0; xx <= joinx - x; xx += 1)
 				{
-					faces[i + xx + yy * CHUNK_SIZE_XZ] &= ~face;
+					faces[xx + yy * chunkSizeXZ] &= ~face;
 				}
 			}
 		}
 
-		___GEN_FACE_JOIN(f, vertices, bt, VEC3(x, -y, z), VEC3(joinx + (step - 1), joiny + (step - 1), 0))
+		___GEN_FACE_JOIN(f, vertices, bt, VEC3(x, -y, z), VEC3(joinx, joiny, 0))
 
 		c += 6;
-		faces[i] &= ~face;
+		*faces &= ~face;
 		*_vertices = vertices;
+	}
+	void generateLOD(IVEC3 chunkSize, PACKED_VERTEX** vertices, UINT& vertexCount)
+	{
+		UINT chunkSizeXZ = chunkSize.x * chunkSize.z;
+		BYTE* faces = new BYTE[chunkSizeXZ * chunkSize.y];
+
+		UINT step = CHUNK_SIZE_X / chunkSize.x;
+		assert(CHUNK_SIZE_Z / chunkSize.z == step);
+
+		BLOCKTYPE* blockdata = lodBlocksFromStep(step);
+
+		// create a map of the faces to render in 
+		for (int iy = 0; iy < chunkSize.y; iy++)
+			for (int iz = 0; iz < chunkSize.z; iz++)
+				for (int ix = 0; ix < chunkSize.x; ix++)
+				{
+					UINT i = iy * chunkSizeXZ + iz * chunkSize.x + ix;
+					BYTE face = 0;
+
+					auto bt = blockdata[i];
+
+					if (bt != BT_AIR)
+					{
+						// bt is a solid, render if some block bordering it is air
+						if (left  (ix, iy, iz, step) == BT_AIR) face |= b_left;
+						if (right (ix, iy, iz, step) == BT_AIR) face |= b_right;
+						if (top   (ix, iy, iz, step) == BT_AIR) face |= b_top;
+						if (bottom(ix, iy, iz, step) == BT_AIR) face |= b_bottom;
+						if (front (ix, iy, iz, step) == BT_AIR) face |= b_front;
+						if (back  (ix, iy, iz, step) == BT_AIR) face |= b_back;
+					}
+
+					faces[i] = face;
+				}
+
+		// create triangles from the map of faces joining equal block faces along their axis
+		for (int y = 0; y < chunkSize.y; y++)
+		{
+			int yXZ = y * chunkSizeXZ;
+			for (int z = 0; z < chunkSize.z; z++)
+			{
+				int zX = z * chunkSize.x; 
+				int i = yXZ + zX; 
+				for (int x = 0; x < chunkSize.x; x++, i++)
+				{
+					BYTE face = faces[i];
+					if ((BYTE)(blockdata[i] == BT_AIR) | (BYTE)(face == 0))
+					{
+						continue;
+					}
+
+					if (face & b_left)
+					{
+						generateMeshSegmentZY(vertices, &faces[i], &blockdata[i], x, y, z, b_left, vertexCount, chunkSize, step);
+					}
+					if (face & b_right)
+					{
+						generateMeshSegmentZY(vertices, &faces[i], &blockdata[i], x, y, z, b_right, vertexCount, chunkSize, step);
+					}
+					if (face & b_top)
+					{
+						generateMeshSegmentXZ(vertices, &faces[i], &blockdata[i], x, y, z, b_top, vertexCount, chunkSize, step);
+					}
+					if (face & b_bottom)
+					{
+						generateMeshSegmentXZ(vertices, &faces[i], &blockdata[i], x, y, z, b_bottom, vertexCount, chunkSize, step);
+					}
+					if (face & b_front)
+					{
+						generateMeshSegmentXY(vertices, &faces[i], &blockdata[i], x, y, z, b_front, vertexCount, chunkSize, step);
+					}
+					if (face & b_back)
+					{
+						generateMeshSegmentXY(vertices, &faces[i], &blockdata[i], x, y, z, b_back, vertexCount, chunkSize, step);
+					}
+				}
+			}
+		}
+		delete[] faces;
 	}
 	void generateMesh(MeshInfo* mesh, UINT lods = 1)
 	{
@@ -753,7 +861,7 @@ public:
 		const UINT lodLevels = 3;
 		
 		static PACKED_VERTEX vertexBuffer[1024 * 1024];
-		static BYTE faces[CHUNK_SIZE_Y * CHUNK_SIZE_XZ];
+
 
 		PACKED_VERTEX* vertices = &vertexBuffer[0];
 		UINT vertexCount = 0;
@@ -769,87 +877,17 @@ public:
 			UINT currentStep = step[lodLevel];
 			lodOffsets[lodLevel] = vertexCount;
 			UINT lodOffset = lodOffsets[lodLevel]; 
+			VEC3 chunkSize = lodChunkSizes[lodLevel]; 
 
-		    // create a map of the faces to render in 
-			for (int y = 0; y < CHUNK_SIZE_Y; y += currentStep)
-				for (int z = 0; z < CHUNK_SIZE_Z; z += currentStep)
-					for (int x = 0; x < CHUNK_SIZE_X; x += currentStep)
-					{
-						UINT i = y * CHUNK_SIZE_XZ + z * CHUNK_SIZE_X + x;
-						BYTE face = 0;
+			generateLOD(chunkSize, &vertices, vertexCount); 
 
-						auto bt = (BLOCKTYPE)get(x, y, z, currentStep);
-						//	(x / currentStep) * currentStep,
-						//	(y / currentStep) * currentStep,
-						//	(z / currentStep) * currentStep,
-						//	1);
-
-						if (bt == BT_AIR && currentStep > 1)
-							for (int yy = 1; (bt == BT_AIR) && yy < currentStep; yy++)
-								for (int zz = 1; (bt == BT_AIR) && zz < currentStep; zz++)
-									for (int xx = 1; (bt == BT_AIR) && xx < currentStep; xx++)
-										bt = (BLOCKTYPE)get(x , y + yy, z , currentStep);
-
-						if (bt != BT_AIR)
-						{
-							// bt is a solid, render is some block bordering it is air
-							if (left(x, y, z, 1) == BT_AIR) face |= b_left;
-							if (right(x, y, z, 1) == BT_AIR) face |= b_right;
-							if (top(x, y, z, 1) == BT_AIR) face |= b_top;
-							if (bottom(x, y, z, 1) == BT_AIR) face |= b_bottom;
-							if (front(x, y, z, 1) == BT_AIR) face |= b_front;
-							if (back(x, y, z, 1) == BT_AIR) face |= b_back;
-						}
-
-						// if stepsize != 1 the faces array will be filled sparsely 
-						faces[i] = face;
-					}
-
-			// create triangles from the map of faces joining equal block faces along their axis
-			for (int y = 0; y < CHUNK_SIZE_Y; y += currentStep)
+			if (lodLevel > 0)
 			{
-				for (int z = 0; z < CHUNK_SIZE_Z; z += currentStep)
+				// scale the lods vertices to the correct size 
+				VEC3 scale = VEC3(currentStep); 
+				for (int i = lodOffset; i < vertexCount; i++)
 				{
-					int x; 
-					for (x = 0; x < CHUNK_SIZE_X; x += currentStep)
-					{
-						UINT i = y * CHUNK_SIZE_XZ + z * CHUNK_SIZE_X + x;
-						if (blocks[i] == BT_AIR)
-						{
-						//	continue; 
-						}
-
-						BYTE face = faces[i];
-						if (face == 0)
-						{
-							continue;
-						}
-
-						if (face & b_left)
-						{
-							generateMeshSegmentZY(&vertices, faces, blocks, x, y, z, b_left, i, vertexCount, currentStep);
-						}
-						if (face & b_right)
-						{
-							generateMeshSegmentZY(&vertices, faces, blocks, x, y, z, b_right, i, vertexCount, currentStep);
-						}
-						if (face & b_top)
-						{
-						    generateMeshSegmentXZ(&vertices, faces, blocks, x, y, z, b_top, i, vertexCount, currentStep);
-						}
-						if (face & b_bottom)    
-						{
-							generateMeshSegmentXZ(&vertices, faces, blocks, x, y, z, b_bottom, i, vertexCount, currentStep);
-						}
-						if (face & b_front)
-						{
-							generateMeshSegmentXY(&vertices, faces, blocks, x, y, z, b_front, i, vertexCount, currentStep);
-						}
-						if (face & b_back)
-						{
-						    generateMeshSegmentXY(&vertices, faces, blocks, x, y, z, b_back, i, vertexCount, currentStep);
-						}
-					}
+					vertexBuffer[i].posAndValue = VEC4(vertexBuffer[i].pos() * scale, vertexBuffer[i].posAndValue.w);
 				}
 			}
 
@@ -858,8 +896,8 @@ public:
 				&&
 				lodVertexCount > 0.85f * (FLOAT)submeshes[submeshes.size() - 1].vertices.size())
 			{
-				// no lods could be generated that contained fewer vertices 
-				break; 
+				//DEBUG("no lods could be generated that contained fewer vertices"); 
+				//break; 
 			}
 
 
@@ -879,8 +917,8 @@ public:
 			memcpy(submesh.vertices.data(), &vertexBuffer[lodOffsets[lodLevel]], sizeof(PACKED_VERTEX) * submeshVertexCount);
 
 			// dedup vertices 
-			submesh.removeDuplicateVertices();
-
+		    submesh.removeDuplicateVertices();
+			
 			// store for combining later 
 			submeshes.push_back(submesh);
 		}
@@ -899,9 +937,9 @@ public:
 			}
 
 			// use meshsimplify to generate lods  
-			mesh->lodThresholds		= { 0.8f,  0.6f,   0.1f };
-			mesh->lodTargetErrors	= { 0.5f,  0.2f,   0.6f };
-			mesh->lodDistances		= { 300,   500,    700 };
+			mesh->lodThresholds		= { 0.8f,  0.5f,  0.1f };
+			mesh->lodTargetErrors	= { 0.1f,  0.2f,  0.6f };
+			mesh->lodDistances		= { 600,   1000,  1500 };
 			mesh->lodSimplifySloppy = { false,  true,  true };
 			mesh->optimizeMesh();
 		}
@@ -956,7 +994,7 @@ public:
 				level++;
 			}
 
-			mesh->lodDistances = { 300, 500, 700 };
+			mesh->lodDistances = { 500, 800, 1000 };
 			mesh->calculateAABB();
 		}
 

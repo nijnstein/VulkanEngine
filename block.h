@@ -21,13 +21,51 @@ enum class FaceType
 #define BT_BLUE         9
 #define BT_WHITE        10
 
-static struct BlockInfo
+// face bitmask for mesh generation 
+const BYTE b_top = 0b00000001;
+const BYTE b_left = 0b00000010;
+const BYTE b_right = 0b00000100;
+const BYTE b_bottom = 0b00001000;
+const BYTE b_front = 0b00010000;
+const BYTE b_back = 0b00100000;
+
+// chunk lod levels
+static const SIZE lodCount = 4;
+
+// chunksizes foreach lodlevel 
+const UVEC3 lodChunkSizes[lodCount] = {
+    {CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z},
+    {CHUNK_SIZE_X / 2, CHUNK_SIZE_Y / 2, CHUNK_SIZE_Z / 2},
+    {CHUNK_SIZE_X / 4, CHUNK_SIZE_Y / 4, CHUNK_SIZE_Z / 4},
+    {CHUNK_SIZE_X / 8, CHUNK_SIZE_Y / 8, CHUNK_SIZE_Z / 8}
+};
+
+// block allocation sizes / lod level 
+const SIZE lodAllocSizes[lodCount] = {
+    sizeof(BLOCKTYPE) * lodChunkSizes[0].x * lodChunkSizes[0].y * lodChunkSizes[0].z,
+    sizeof(BLOCKTYPE) * lodChunkSizes[1].x * lodChunkSizes[1].y * lodChunkSizes[1].z,
+    sizeof(BLOCKTYPE) * lodChunkSizes[2].x * lodChunkSizes[2].y * lodChunkSizes[2].z,
+    sizeof(BLOCKTYPE) * lodChunkSizes[3].x * lodChunkSizes[3].y * lodChunkSizes[3].z,
+};
+
+// full block allocation size 
+const SIZE blockAllocSize = lodAllocSizes[0] + lodAllocSizes[1] + lodAllocSizes[2] + lodAllocSizes[3];
+
+// allocation offsets 
+const SIZE lodAllocOffsets[lodCount]{
+    0,
+    lodAllocSizes[0],
+    lodAllocSizes[0] + lodAllocSizes[1],
+    lodAllocSizes[0] + lodAllocSizes[1] + lodAllocSizes[2]
+};
+
+#define BLOCKINFO BlockInfo
+static struct BLOCKINFO
 {
     BLOCKTYPE type; 
     COLOR color; 
 };
 
-#define BLOCKINFO BlockInfo
 
 static const BLOCKINFO BlockTypes[] =
 {

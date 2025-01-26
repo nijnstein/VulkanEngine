@@ -211,6 +211,9 @@
     <ClInclude Include="player.h">
       <Filter>World</Filter>
     </ClInclude>
+    <ClInclude Include="physics.h">
+      <Filter>VulkanEngine\Math</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="debug.cpp">
@@ -332,6 +335,9 @@
     </ClCompile>
     <ClCompile Include="ui.cpp">
       <Filter>VulkanEngine\Overlays</Filter>
+    </ClCompile>
+    <ClCompile Include="physics.cpp">
+      <Filter>VulkanEngine\Math</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

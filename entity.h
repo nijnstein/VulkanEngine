@@ -637,10 +637,17 @@ namespace vkengine
 			}
 		}
 
-		void addComponent(EntityId entityId, ComponentTypeId id)
+		inline void addComponent(EntityId entityId, ComponentTypeId id)
 		{
 			entities[entityId].components |= id;
+			invalidateComponents(id); 
 		}
+		inline void removeComponent(EntityId entityId, ComponentTypeId id)
+		{
+			entities[entityId].components &= ~id; 
+			invalidateComponents(id); 
+		}
+
 		void addComponentData(ComponentTypeId id, void* data, size_t count, size_t reserve = 50)
 		{
 			for (auto& cbuffer : gpuBuffers.componentBuffers)

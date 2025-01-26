@@ -53,11 +53,13 @@ namespace vkengine
 		VEC3 calculateCentroid();
 		void scaleVertices(float scale);
 		void scaleVertices(VEC3 scale);
-		void translateVertices(VEC3 translation); 
+		void scaleVertices(VEC3 scale, int from, int count);
+		void translateVertices(VEC3 translation);
 		void removeDuplicateVertices();// only checks lod0 !!!
 		inline VEC3 computeFaceNormal(VEC3 p1, VEC3 p2, VEC3 p3);
 		void computeVertexNormals();
 		void setVertexColors(VEC4 rgba);
+		void clearNormals();
 		void optimizeMesh();
 	};
 }

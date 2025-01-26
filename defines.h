@@ -140,6 +140,7 @@ const char* const NORMAL_TEXTURE = "textures/Paving_Stone_1_Normal.jpg";
 
 #define DOT glm::dot
 #define CROSS glm::cross
+#define INVERSE glm::inverse
 #define INF std::numeric_limits<FLOAT>::infinity()
 #define PI glm::pi<float>()
 #define RAD glm::radians
@@ -181,7 +182,6 @@ const char* const NORMAL_TEXTURE = "textures/Paving_Stone_1_Normal.jpg";
 #define CHUNK_MAX_VERTICE_COUNT (CHUNK_BLOCK_COUNT * 24)
 #define CHUNK_SIZE_XZ           (CHUNK_SIZE_X * CHUNK_SIZE_Z)
 #define CHUNK_SIZE_XYZ          (CHUNK_SIZE_X * CHUNK_SIZE_Z * CHUNK_SIZE_Y)
-
 
 #define WINDOW ui::Window 
 #define WINDOW_ID WindowId 
@@ -319,6 +319,7 @@ const char* const NORMAL_TEXTURE = "textures/Paving_Stone_1_Normal.jpg";
 #include "configuration.h"
 #include "device.h"
 #include "entity.h"
+#include "physics.h"
 #include "scene.h"
 #include "render.h"
 #include "grid.h"

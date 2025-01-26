@@ -125,6 +125,9 @@ namespace vkengine
 
 		//void drawText(std::string text, float x, float y, float persistForSeconds, TextAlign align = TextAlign::alignLeft);
 
+		RayCastResult castRay(Ray3d ray);
+
+
 	private: 
 		float getFrameTime();
 

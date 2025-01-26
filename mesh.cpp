@@ -58,6 +58,16 @@ namespace vkengine
 		aabb = calculateAABB();
 	}
 
+	void MeshInfo::scaleVertices(VEC3 scale, int from, int count)
+	{
+		for (int i = from; i < from + count; i++)
+		{
+			vertices[i].posAndValue = VEC4(vertices[i].pos() * scale, vertices[i].posAndValue.w);
+		}
+		aabb = calculateAABB();
+	}
+
+
 	void MeshInfo::translateVertices(VEC3 translation)
 	{
 		for (int i = 0; i < vertices.size(); i++)
@@ -117,6 +127,14 @@ namespace vkengine
 		for (auto& v : vertices)
 		{
 			v.setColor(VEC3(rgba));
+		}
+	}
+
+	void MeshInfo::clearNormals()
+	{
+		for (int iv = 0; iv < vertices.size(); iv++)
+		{
+			vertices[iv].setNormal(VEC3(0, 0, 0));
 		}
 	}
 
